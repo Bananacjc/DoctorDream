@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'widgets/custom_bottom_navigation_bar.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 void main() {
   runApp(const MyApp());
@@ -40,6 +41,19 @@ class MyApp extends StatelessWidget {
           error: const Color(0xFFB14066),
           onError: const Color(0xFFFFFFFF),
           brightness: Brightness.dark,
+        ),
+        textTheme: TextTheme(
+          titleLarge: GoogleFonts.robotoFlex(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: Theme.of(context).colorScheme.onPrimary
+          ),
+          headlineLarge: GoogleFonts.robotoFlex(
+            fontSize: 14,
+            fontWeight: FontWeight.normal,
+            color: Theme.of(context).colorScheme.onPrimary
+          )
+
         ),
         useMaterial3: true,
       ),
