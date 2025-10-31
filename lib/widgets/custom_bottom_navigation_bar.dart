@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../screens/home_screen.dart';
+import '../screens/review_screen.dart';
 import '../screens/diagnosis_screen.dart';
 import '../screens/recommend_screen.dart';
 import '../screens/chat_screen.dart';
@@ -18,7 +18,7 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
   int _currentIndex = 0; // Default to home screen
 
   final List<Widget> _pages = const <Widget>[
-    HomeScreen(),
+    ReviewScreen(),
     DiagnosisScreen(),
     RecommendScreen(),
     ChatScreen(),
@@ -27,15 +27,16 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
 
   @override
   Widget build(BuildContext context) {
+    final Size size = MediaQuery.of(context).size;
     return Scaffold(
       body: _pages[_currentIndex],
       bottomNavigationBar: Container(
-        height: 82,
-        color: const Color(0xFF081944), // Dark navy background
+        height: 80,
+        color: Theme.of(context).colorScheme.primary,
         child: BottomNavigationBar(
-          backgroundColor: const Color(0xFF081944),
-          selectedItemColor: Colors.white,
-          unselectedItemColor: Colors.white,
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          selectedItemColor: Theme.of(context).colorScheme.onPrimary,
+          unselectedItemColor: Theme.of(context).colorScheme.onPrimary,
           currentIndex: _currentIndex,
           onTap: (index) => setState(() => _currentIndex = index),
           type: BottomNavigationBarType.fixed,
@@ -44,7 +45,10 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
               icon: _CustomBottomBarIcon(
                 icon: SvgPicture.asset(
                   "assets/icons/home_light.svg",
-                  colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                  colorFilter: ColorFilter.mode(
+                    Theme.of(context).colorScheme.onPrimary,
+                    BlendMode.srcIn,
+                  ),
                 ),
                 selected: _currentIndex == 0,
               ),
@@ -54,7 +58,10 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
               icon: _CustomBottomBarIcon(
                 icon: SvgPicture.asset(
                   "assets/icons/stethoscope_light.svg",
-                  colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                  colorFilter: ColorFilter.mode(
+                    Theme.of(context).colorScheme.onPrimary,
+                    BlendMode.srcIn,
+                  ),
                 ),
                 selected: _currentIndex == 1,
               ),
@@ -64,7 +71,10 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
               icon: _CustomBottomBarIcon(
                 icon: SvgPicture.asset(
                   "assets/icons/compass_light.svg",
-                  colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                  colorFilter: ColorFilter.mode(
+                    Theme.of(context).colorScheme.onPrimary,
+                    BlendMode.srcIn,
+                  ),
                 ),
                 selected: _currentIndex == 2,
               ),
@@ -74,7 +84,10 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
               icon: _CustomBottomBarIcon(
                 icon: SvgPicture.asset(
                   "assets/icons/chat_light.svg",
-                  colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                  colorFilter: ColorFilter.mode(
+                    Theme.of(context).colorScheme.onPrimary,
+                    BlendMode.srcIn,
+                  ),
                 ),
                 selected: _currentIndex == 3,
               ),
@@ -84,7 +97,10 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
               icon: _CustomBottomBarIcon(
                 icon: SvgPicture.asset(
                   "assets/icons/user_light.svg",
-                  colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                  colorFilter: ColorFilter.mode(
+                    Theme.of(context).colorScheme.onPrimary,
+                    BlendMode.srcIn,
+                  ),
                 ),
                 selected: _currentIndex == 4,
               ),
@@ -105,12 +121,15 @@ class _CustomBottomBarIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Size size = MediaQuery.of(context).size;
+
     if (selected) {
       return Container(
-        width: 40,
-        height: 40,
+        width: 48,
+        height: 48,
         decoration: BoxDecoration(
-          color: const Color(0xFF8E8CF2), // Light purple background
+          color: Theme.of(context).colorScheme.primaryContainer,
+          // background
           borderRadius: BorderRadius.circular(8),
         ),
         child: Stack(
@@ -121,20 +140,20 @@ class _CustomBottomBarIcon extends StatelessWidget {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: const Color(0xFF8E8CF2),
+                color: Theme.of(context).colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
             // Inner circle
-            /*Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.transparent,
-                border: Border.all(color: Colors.white, width: 1.5),
-                shape: BoxShape.circle,
-              ),
-            ),*/
+            // Container(
+            //   width: 40,
+            //   height: 40,
+            //   decoration: BoxDecoration(
+            //     color: Colors.transparent,
+            //     border: Border.all(color: Colors.white, width: 1.5),
+            //     shape: BoxShape.circle,
+            //   ),
+            // ),
             // Icon
             SizedBox(width: 36, height: 36, child: icon),
           ],
