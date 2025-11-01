@@ -52,7 +52,7 @@ class MyApp extends StatelessWidget {
             fontSize: 14,
             fontWeight: FontWeight.normal,
             color: Theme.of(context).colorScheme.onPrimary
-          )
+          ),
 
         ),
         useMaterial3: true,
