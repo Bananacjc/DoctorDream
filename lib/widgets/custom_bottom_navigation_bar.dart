@@ -27,20 +27,22 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
 
   @override
   Widget build(BuildContext context) {
-    final Size size = MediaQuery.of(context).size;
     return Scaffold(
       body: _pages[_currentIndex],
       bottomNavigationBar: Container(
-        height: 80,
         color: Theme.of(context).colorScheme.primary,
-        child: BottomNavigationBar(
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          selectedItemColor: Theme.of(context).colorScheme.onPrimary,
-          unselectedItemColor: Theme.of(context).colorScheme.onPrimary,
-          currentIndex: _currentIndex,
-          onTap: (index) => setState(() => _currentIndex = index),
-          type: BottomNavigationBarType.fixed,
-          items: [
+        child: SafeArea(
+          child: BottomNavigationBar(
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            selectedItemColor: Theme.of(context).colorScheme.onPrimary,
+            unselectedItemColor: Theme.of(context).colorScheme.onPrimary,
+            currentIndex: _currentIndex,
+            onTap: (index) => setState(() => _currentIndex = index),
+            type: BottomNavigationBarType.fixed,
+            selectedFontSize: 11,
+            unselectedFontSize: 11,
+            iconSize: 24,
+            items: [
             BottomNavigationBarItem(
               icon: _CustomBottomBarIcon(
                 icon: SvgPicture.asset(
@@ -78,7 +80,7 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
                 ),
                 selected: _currentIndex == 2,
               ),
-              label: 'Recommend',
+              label: 'Recomm',
             ),
             BottomNavigationBarItem(
               icon: _CustomBottomBarIcon(
@@ -107,6 +109,7 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
               label: 'Profile',
             ),
           ],
+          ),
         ),
       ),
     );
@@ -121,8 +124,6 @@ class _CustomBottomBarIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Size size = MediaQuery.of(context).size;
-
     if (selected) {
       return Container(
         width: 48,

@@ -1,7 +1,63 @@
 import 'package:flutter/material.dart';
 
-class RecommendScreen extends StatelessWidget {
+class RecommendScreen extends StatefulWidget {
   const RecommendScreen({super.key});
+
+  @override
+  State<RecommendScreen> createState() => _RecommendScreenState();
+}
+
+class _RecommendScreenState extends State<RecommendScreen> {
+  // State management
+  bool _isLoading = true;
+  String? _error;
+  // Kept for potential future use; currently we show inline only.
+  // ignore: unused_field
+  List<dynamic> _musicRecommendations = [];
+  String? _musicInlineAnswer;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchRecommendations();
+  }
+
+  Future<void> _fetchRecommendations() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      // 1) Hardcoded dream data
+      final List<String> demoDreams = <String>[
+        'question: please say yes to me. Reply only: yes',
+      ];
+      // 2) Use a static placeholder (no external services)
+      final List<Map<String, String>> rows = [
+        {
+          'dream_content': demoDreams.first,
+          'answer': 'yes',
+        }
+      ];
+
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _error = null;
+        _musicRecommendations = rows;
+        // Build a compact inline answer summary for the Music header
+        final answers = rows.map((e) => (e['answer'] ?? '').trim()).where((s) => s.isNotEmpty).toList();
+        _musicInlineAnswer = answers.isEmpty ? null : answers.first;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _error = e.toString();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,19 +153,19 @@ class RecommendScreen extends StatelessWidget {
                 padding: pagePadding.copyWith(top: 16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    _SectionRow(title: 'Music'),
-                    SizedBox(height: 12),
-                    _CardRow(),
-                    SizedBox(height: 20),
-                    _SectionRow(title: 'Video'),
-                    SizedBox(height: 12),
-                    _CardRow(),
-                    SizedBox(height: 20),
-                    _SectionRow(title: 'Exercise'),
-                    SizedBox(height: 12),
-                    _CardRow(),
-                    SizedBox(height: 20),
+                  children: [
+                    _SectionRow(title: 'Music', trailing: _isLoading ? 'Loading…' : (_error ?? (_musicInlineAnswer ?? ''))),
+                    const SizedBox(height: 12),
+                    const _CardRow(),
+                    const SizedBox(height: 20),
+                    const _SectionRow(title: 'Video'),
+                    const SizedBox(height: 12),
+                    const _CardRow(),
+                    const SizedBox(height: 20),
+                    const _SectionRow(title: 'Exercise'),
+                    const SizedBox(height: 12),
+                    const _CardRow(),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
@@ -159,16 +215,36 @@ class _CategoryPill extends StatelessWidget {
 
 class _SectionRow extends StatelessWidget {
   final String title;
-  const _SectionRow({required this.title});
+  final String? trailing;
+  const _SectionRow({required this.title, this.trailing});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
         Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.w700),
+          child: Row(
+            children: [
+              Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              if ((trailing ?? '').isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    trailing!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF9AA5C4),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
         Icon(Icons.chevron_right, color: const Color(0xFF9AA5C4)),
@@ -221,5 +297,8 @@ class _PlayGlyph extends StatelessWidget {
     );
   }
 }
+
+
+// Inline-only display now; list implementation removed.
 
 
