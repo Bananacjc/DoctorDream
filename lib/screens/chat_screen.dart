@@ -25,6 +25,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   final List<ChatMessage> _messages = [];
   bool _isSending = false;
+  bool _hasUserSentMessage = false;
 
   // Colors from your design
   static const Color navy = Color(0xFF081944);
@@ -37,11 +38,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    // Add the initial greeting from the assistant
-    _messages.add(ChatMessage(
-      text: "Hi, I’m here to listen. What’s on your mind today?",
-      isUser: false,
-    ));
+    // Start with an empty state; greeting will be added on first send
   }
 
   @override
@@ -61,6 +58,14 @@ class _ChatScreenState extends State<ChatScreen> {
 
     setState(() {
       _isSending = true;
+      if (!_hasUserSentMessage) {
+        // Insert the original greeting before the first user message
+        _messages.add(ChatMessage(
+          text: "Hi, I’m here to listen. What’s on your mind today?",
+          isUser: false,
+        ));
+        _hasUserSentMessage = true;
+      }
       // Add user's message to the list
       _messages.add(ChatMessage(text: text, isUser: true));
     });
@@ -124,15 +129,17 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             // Chat messages area
             Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                itemCount: _messages.length,
-                itemBuilder: (context, index) {
-                  final message = _messages[index];
-                  return _buildMessageBubble(message);
-                },
-              ),
+              child: (!_hasUserSentMessage && _messages.isEmpty)
+                  ? _buildEmptyState()
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      itemCount: _messages.length,
+                      itemBuilder: (context, index) {
+                        final message = _messages[index];
+                        return _buildMessageBubble(message);
+                      },
+                    ),
             ),
             
             // "Typing" indicator
@@ -160,6 +167,58 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
 
             // Text input field
+            if (!(!_hasUserSentMessage && _messages.isEmpty)) _buildTextInput(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Empty state UI shown before any user input
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Text(
+              "Let’s chat to make life happier",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
+              decoration: BoxDecoration(
+                color: accent.withOpacity(0.75),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "SAMPLE TEXT HERE,\nxxxx\nxxx\nxxx",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontStyle: FontStyle.italic,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Place the input box here so the whole started UI is vertically centered
             _buildTextInput(),
           ],
         ),

@@ -7,10 +7,8 @@ class GeminiService {
   GeminiService._internal()
       : _model = GenerativeModel(
           model: 'gemini-2.5-flash',
-          apiKey: const String.fromEnvironment(
-            'GEMINI_API_KEY',
-            defaultValue: 'AIzaSyCU5xd-R4qbwbOh_Mj1y_O-eNUm1JuyKMk', 
-          ),
+          // Run this command when starting the app -> flutter run --dart-define=GEMINI_API_KEY=your_real_key_here
+          apiKey: const String.fromEnvironment('GEMINI_API_KEY'),
           systemInstruction: Content.system(_systemPrompt),
         );
 
