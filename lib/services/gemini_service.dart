@@ -1,41 +1,55 @@
 // lib/services/gemini_service.dart
 
 import 'package:google_generative_ai/google_generative_ai.dart';
+import '../models/user_info.dart';
+import 'gemini_prompts.dart';
 
 class GeminiService {
   // Singleton instance
   GeminiService._internal()
-      : _model = GenerativeModel(
-          model: 'gemini-2.5-flash',
-          // Run this command when starting the app -> flutter run --dart-define=GEMINI_API_KEY=your_real_key_here
-          apiKey: const String.fromEnvironment('GEMINI_API_KEY'),
-          systemInstruction: Content.system(_systemPrompt),
-        );
+      : _apiKey = const String.fromEnvironment('GEMINI_API_KEY'),
+        _modelName = 'gemini-2.5-flash';
 
   static final GeminiService instance = GeminiService._internal();
-  final GenerativeModel _model;
+  
+  final String _apiKey;
+  final String _modelName;
+  
+  // Chat session for maintaining conversation context
+  ChatSession? _chatSession;
+  UserInfo? _currentChatUserInfo;
 
-  late final ChatSession _chatSession = _model.startChat();
+  /// Gets a model with a specific system instruction
+  GenerativeModel _getModelWithPrompt(String systemPrompt) {
+    return GenerativeModel(
+      model: _modelName,
+      apiKey: _apiKey,
+      systemInstruction: Content.system(systemPrompt),
+    );
+  }
 
+  /// Starts or resets chat session with user info
+  void _initializeChatSession(UserInfo userInfo) {
+    // If user info changed, reset the session
+    if (_currentChatUserInfo != userInfo) {
+      final prompt = GeminiPrompts.buildChatPrompt(userInfo);
+      final model = _getModelWithPrompt(prompt);
+      _chatSession = model.startChat();
+      _currentChatUserInfo = userInfo;
+    }
+  }
 
-  static const String _systemPrompt = '''
-You are Gemini, an empathetic AI companion designed to support users who may be experiencing potential mental health challenges such as stress, anxiety, or depression.
-
-Your role is to listen actively, respond with care, and help users express their thoughts and emotions safely. Offer gentle guidance, coping techniques, and supportive conversation that can help users feel calmer and more understood.
-
-However, you must not diagnose or claim that the user has a mental illness — you can only refer to them as someone who may be experiencing potential emotional or psychological distress.
-
-Maintain a warm, conversational, and compassionate tone, focusing on understanding the user’s feelings, helping them reflect, and suggesting healthy ways to cope or seek help if necessary.
-
-If the user shows signs of serious distress (e.g., hopelessness, thoughts of self-harm), gently encourage them to reach out to a trusted friend, family member, or a licensed mental health professional.
-''';
-
-  Future<String> chat(String userMessage) async {
+  /// General chat conversation (maintains context)
+  Future<String> chat(String userMessage, {UserInfo? userInfo}) async {
     if (userMessage.trim().isEmpty) return '';
 
     try {
+      // Use default user info if not provided
+      final info = userInfo ?? UserInfo.defaultValues();
+      _initializeChatSession(info);
+
       // We use _chatSession.sendMessage to maintain context
-      final response = await _chatSession.sendMessage(
+      final response = await _chatSession!.sendMessage(
         Content.text(userMessage.trim()),
       );
 
@@ -44,6 +58,66 @@ If the user shows signs of serious distress (e.g., hopelessness, thoughts of sel
     } catch (e) {
       print('Gemini API error: $e');
       return 'Sorry, I had trouble responding just now. Could you please try again?';
+    }
+  }
+
+  /// Recommends YouTube videos based on user information
+  Future<String> recommendVideo({UserInfo? userInfo, String? additionalContext}) async {
+    try {
+      final info = userInfo ?? UserInfo.defaultValues();
+      final prompt = GeminiPrompts.buildVideoRecommendationPrompt(info);
+      final model = _getModelWithPrompt(prompt);
+
+      final requestText = additionalContext?.isNotEmpty == true
+          ? 'Please recommend YouTube videos. Context: $additionalContext'
+          : 'Please recommend YouTube videos that would be helpful for me.';
+
+      final response = await model.generateContent([Content.text(requestText)]);
+      final reply = response.text?.trim();
+      return reply?.isNotEmpty == true ? reply! : '(No video recommendations available)';
+    } catch (e) {
+      print('Gemini API error (recommendVideo): $e');
+      return 'Sorry, I had trouble generating video recommendations. Could you please try again?';
+    }
+  }
+
+  /// Recommends Spotify songs/playlists based on user information
+  Future<String> recommendMusic({UserInfo? userInfo, String? additionalContext}) async {
+    try {
+      final info = userInfo ?? UserInfo.defaultValues();
+      final prompt = GeminiPrompts.buildMusicRecommendationPrompt(info);
+      final model = _getModelWithPrompt(prompt);
+
+      final requestText = additionalContext?.isNotEmpty == true
+          ? 'Please recommend Spotify songs or playlists. Context: $additionalContext'
+          : 'Please recommend Spotify songs or playlists that would be helpful for me.';
+
+      final response = await model.generateContent([Content.text(requestText)]);
+      final reply = response.text?.trim();
+      return reply?.isNotEmpty == true ? reply! : '(No music recommendations available)';
+    } catch (e) {
+      print('Gemini API error (recommendMusic): $e');
+      return 'Sorry, I had trouble generating music recommendations. Could you please try again?';
+    }
+  }
+
+  /// Generates a helpful article based on user information
+  Future<String> generateArticle({UserInfo? userInfo, String? topic}) async {
+    try {
+      final info = userInfo ?? UserInfo.defaultValues();
+      final prompt = GeminiPrompts.buildArticleGenerationPrompt(info);
+      final model = _getModelWithPrompt(prompt);
+
+      final requestText = topic?.isNotEmpty == true
+          ? 'Please generate a helpful article about: $topic'
+          : 'Please generate a helpful article that would be beneficial for me.';
+
+      final response = await model.generateContent([Content.text(requestText)]);
+      final reply = response.text?.trim();
+      return reply?.isNotEmpty == true ? reply! : '(No article generated)';
+    } catch (e) {
+      print('Gemini API error (generateArticle): $e');
+      return 'Sorry, I had trouble generating the article. Could you please try again?';
     }
   }
 }

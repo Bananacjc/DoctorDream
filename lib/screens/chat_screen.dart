@@ -1,13 +1,12 @@
 // lib/screens/chat_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:doctor_dream/services/gemini_service.dart'; // Ensure this path is correct
+import 'package:doctor_dream/services/gemini_service.dart';
+import 'package:doctor_dream/models/user_info.dart';
 
-// A simple class to hold our message data
 class ChatMessage {
   final String text;
   final bool isUser;
-
   ChatMessage({required this.text, required this.isUser});
 }
 
@@ -26,20 +25,14 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<ChatMessage> _messages = [];
   bool _isSending = false;
   bool _hasUserSentMessage = false;
+  
+  // User information - can be updated from other screens or user input
+  UserInfo _userInfo = UserInfo.defaultValues();
 
-  // Colors from your design
   static const Color navy = Color(0xFF081944);
   static const Color accent = Color(0xFFB7B9FF);
-  // A new color for the assistant's bubble
   static const Color assistantBubbleColor = Color(0xFFE8E8FF);
   static const Color assistantTextColor = Color(0xFF081944);
-
-
-  @override
-  void initState() {
-    super.initState();
-    // Start with an empty state; greeting will be added on first send
-  }
 
   @override
   void dispose() {
@@ -53,49 +46,44 @@ class _ChatScreenState extends State<ChatScreen> {
     final text = _textController.text.trim();
     if (text.isEmpty || _isSending) return;
 
-    _focusNode.unfocus(); // Hide keyboard
+    _focusNode.unfocus();
     _textController.clear();
 
     setState(() {
       _isSending = true;
+
       if (!_hasUserSentMessage) {
-        // Insert the original greeting before the first user message
         _messages.add(ChatMessage(
           text: "Hi, I’m here to listen. What’s on your mind today?",
           isUser: false,
         ));
         _hasUserSentMessage = true;
       }
-      // Add user's message to the list
+
       _messages.add(ChatMessage(text: text, isUser: true));
     });
 
     _scrollToBottom();
 
     try {
-      final reply = await GeminiService.instance.chat(text);
+      final reply = await GeminiService.instance.chat(text, userInfo: _userInfo);
       setState(() {
-        // Add assistant's reply to the list
         _messages.add(ChatMessage(text: reply, isUser: false));
       });
-    } catch (e) {
+    } catch (_) {
       setState(() {
-        // Add error message to the list
         _messages.add(ChatMessage(
-          text: "I’m sorry, I couldn’t respond just now. Let's try again.",
+          text: "Sorry, I had trouble responding just now. Could you please try again?",
           isUser: false,
         ));
       });
     } finally {
-      setState(() {
-        _isSending = false;
-      });
+      _isSending = false;
       _scrollToBottom();
     }
   }
 
   void _scrollToBottom() {
-    // A small delay ensures the ListView has rebuilt before we scroll
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -114,132 +102,114 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: AppBar(
         title: const Text(
           'Chat',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-          ),
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white),
         ),
         backgroundColor: navy,
-        elevation: 0,
         centerTitle: true,
+        elevation: 0,
       ),
+
       body: SafeArea(
         child: Column(
           children: [
-            // Chat messages area
             Expanded(
               child: (!_hasUserSentMessage && _messages.isEmpty)
                   ? _buildEmptyState()
                   : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                      itemCount: _messages.length,
-                      itemBuilder: (context, index) {
-                        final message = _messages[index];
-                        return _buildMessageBubble(message);
-                      },
-                    ),
+                controller: _scrollController,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                itemCount: _messages.length,
+                itemBuilder: (_, index) => _buildMessageBubble(_messages[index]),
+              ),
             ),
-            
-            // "Typing" indicator
+
             if (_isSending)
               const Padding(
-                padding: EdgeInsets.all(8.0),
+                padding: EdgeInsets.only(bottom: 6),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     ),
-                    SizedBox(width: 10),
+                    SizedBox(width: 8),
                     Text(
                       'DoctorDream is typing...',
                       style: TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
-                    )
+                    ),
                   ],
                 ),
               ),
 
-            // Text input field
-            if (!(!_hasUserSentMessage && _messages.isEmpty)) _buildTextInput(),
+            // Show bottom input only AFTER first message
+            if (_hasUserSentMessage) _buildTextInput(),
           ],
         ),
       ),
     );
   }
 
-  // Empty state UI shown before any user input
+  // -------------------- EMPTY STATE (with centered input bar) --------------------
   Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Text(
-              "Let’s chat to make life happier",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text(
+            "Let’s chat to make life happier",
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 24),
+
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+            decoration: BoxDecoration(
+              color: accent.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(18),
             ),
-            const SizedBox(height: 24),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
-              decoration: BoxDecoration(
-                color: accent.withOpacity(0.75),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    "SAMPLE TEXT HERE,\nxxxx\nxxx\nxxx",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontStyle: FontStyle.italic,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
+            child: const Column(
+              children: [
+                Icon(Icons.chat_bubble_outline_rounded, color: Colors.white, size: 32),
+                SizedBox(height: 12),
+                Text(
+                  "You can tell me about your day,\nyour worries, your dreams,\nor anything that’s on your mind.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: Colors.white, fontStyle: FontStyle.italic, height: 1.5, fontSize: 15),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  "Whenever you’re ready,\nstart by typing below.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            // Place the input box here so the whole started UI is vertically centered
-            _buildTextInput(),
-          ],
-        ),
+          ),
+
+          const SizedBox(height: 30),
+
+          // CENTERED INPUT BAR (only BEFORE chat begins)
+          _buildTextInput(),
+        ],
       ),
     );
   }
 
-  // Widget for the text input bar
+  // -------------------- INPUT BAR --------------------
   Widget _buildTextInput() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-      color: navy, // Ensures background is navy
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      color: navy,
       child: Container(
-        constraints: const BoxConstraints(maxHeight: 120),
         decoration: BoxDecoration(
-          color: Colors.transparent,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: Colors.white,
-            width: 1,
-          ),
+          border: Border.all(color: Colors.white, width: 1),
         ),
         child: TextField(
           controller: _textController,
@@ -247,96 +217,58 @@ class _ChatScreenState extends State<ChatScreen> {
           cursorColor: Colors.white,
           maxLines: null,
           minLines: 1,
-          textInputAction: TextInputAction.send, // Changed to 'send'
-          onSubmitted: (value) => _sendMessage(), // Allows sending with keyboard
+          textInputAction: TextInputAction.send,
+          onSubmitted: (_) => _sendMessage(),
           style: const TextStyle(color: Colors.white, fontSize: 16),
           decoration: InputDecoration(
             hintText: 'Ask DoctorDream',
-            hintStyle: const TextStyle(
-              color: Colors.white70,
-              fontSize: 16,
-            ),
+            hintStyle: const TextStyle(color: Colors.white70),
             border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 12.0,
-            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             suffixIcon: Padding(
-              padding: const EdgeInsets.only(right: 8.0),
+              padding: const EdgeInsets.only(right: 8),
               child: Container(
-                width: 36,
-                height: 36,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
                   color: _textController.text.isNotEmpty ? accent : Colors.grey,
                   shape: BoxShape.circle,
                 ),
-                 child: IconButton(
-                  padding: EdgeInsets.zero,
-                  icon: const Icon(
-                    Icons.send_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                   onPressed: _textController.text.isNotEmpty ? () => _sendMessage() : null,
+                child: IconButton(
+                  icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                  onPressed: _textController.text.isNotEmpty ? _sendMessage : null,
                 ),
               ),
             ),
           ),
-          onChanged: (value) {
-            setState(() {}); // To update the send button's active state
-          },
+          onChanged: (_) => setState(() {}),
         ),
       ),
     );
   }
 
-  // Widget for a single chat bubble
+  // -------------------- CHAT BUBBLE --------------------
   Widget _buildMessageBubble(ChatMessage message) {
-    // Align user messages to the right, assistant to the left
-    final alignment =
-        message.isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start;
-    
-    // Different colors for user and assistant
     final bubbleColor = message.isUser ? accent : assistantBubbleColor;
     final textColor = message.isUser ? Colors.white : assistantTextColor;
-    
-    // Different border radius for a "chat" look
-    final borderRadius = message.isUser
-        ? const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(16),
-            bottomLeft: Radius.circular(16),
-            bottomRight: Radius.circular(4),
-          )
-        : const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(16),
-            bottomLeft: Radius.circular(4),
-            bottomRight: Radius.circular(16),
-          );
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 6.0),
-      child: Column(
-        crossAxisAlignment: alignment,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment:
+        message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
           Container(
-            constraints: BoxConstraints(
-              // Max width of the bubble is 75% of the screen
-              maxWidth: MediaQuery.of(context).size.width * 0.75, 
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            constraints:
+            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: bubbleColor,
-              borderRadius: borderRadius,
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
               message.text,
-              style: TextStyle(
-                fontSize: 15,
-                color: textColor,
-                height: 1.4,
-              ),
+              style: TextStyle(color: textColor, fontSize: 15, height: 1.4),
             ),
           ),
         ],
