@@ -53,7 +53,6 @@ class MyApp extends StatelessWidget {
             fontWeight: FontWeight.normal,
             color: Theme.of(context).colorScheme.onPrimary
           ),
-
         ),
         useMaterial3: true,
       ),

@@ -1,8 +1,8 @@
 // lib/screens/chat_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:doctor_dream/services/gemini_service.dart';
-import 'package:doctor_dream/models/user_info.dart';
+import '../data/services/gemini_service.dart';
+import '../data/models/user_info.dart';
 
 class ChatMessage {
   final String text;
