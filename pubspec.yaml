@@ -40,6 +40,9 @@ dependencies:
   flutter_svg: ^2.2.1
   url_launcher: ^6.3.0 # spotify link launcher
   google_generative_ai: ^0.4.7
+  http: ^1.2.0
+  youtube_explode_dart: ^2.3.7
+  audioplayers: ^6.1.0
 
 dev_dependencies:
   flutter_test:

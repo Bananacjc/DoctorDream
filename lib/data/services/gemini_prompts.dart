@@ -53,15 +53,29 @@ IMPORTANT:
     final basePrompt = buildBasePrompt(userInfo);
     return '''
 $basePrompt
-You are now helping the user by recommending Spotify songs/playlists that might help them based on their current emotional state and needs.
+You are now helping the user by recommending songs that might help them based on their current emotional state and needs.
 
 IMPORTANT:
-- You must provide actual Spotify links in your response
-- Format: [Song/Playlist Name](https://open.spotify.com/track/TRACK_ID) or [Playlist Name](https://open.spotify.com/playlist/PLAYLIST_ID) or just the full Spotify URL
 - Consider the user's emotion: ${userInfo.emotion ?? 'unknown'} and dream state: ${userInfo.dream ?? 'unknown'}
 - Recommend music that is calming, uplifting, therapeutic, or matches their emotional needs
-- Provide 3-5 song/playlist recommendations with brief explanations
-- Make sure all links are valid Spotify URLs (format: https://open.spotify.com/track/... or https://open.spotify.com/playlist/...)
+- Provide 3-5 song recommendations with the following details for EACH song:
+  * Song name (exact title)
+  * Artist name (main artist)
+  * Optional: Album name (if helpful for identification)
+  
+- Format your response as a simple list, one song per line, with format:
+  "Song Name" by Artist Name
+  or
+  "Song Name" by Artist Name (from Album Name)
+
+- Do NOT include URLs, links, or Spotify IDs - only provide song and artist information
+- Be specific with song titles and artist names to ensure accurate search results
+- Example format:
+  1. "Weightless" by Marconi Union
+  2. "Clair de Lune" by Claude Debussy
+  3. "Strawberry Swing" by Coldplay
+
+- After the list, you can add a brief explanation of why these songs might help
 ''';
   }
 
