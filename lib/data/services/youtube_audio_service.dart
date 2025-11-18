@@ -5,6 +5,12 @@ class YoutubeAudioService {
   YoutubeAudioService._() : _yt = YoutubeExplode();
 
   static final YoutubeAudioService instance = YoutubeAudioService._();
+  static const Map<String, String> defaultHttpHeaders = {
+    'User-Agent':
+        'Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+    'Accept': '*/*',
+    'Connection': 'keep-alive',
+  };
 
   final YoutubeExplode _yt;
 
@@ -48,13 +54,27 @@ class YoutubeAudioService {
             continue;
           }
 
-          final sortedStreams = audioStreams.toList()
-            ..sort(
-              (a, b) =>
-                  a.bitrate.bitsPerSecond.compareTo(b.bitrate.bitsPerSecond),
-            );
+          // Prefer AAC/M4A streams because they are widely supported by Android's
+          // native MediaPlayer. Opus/WebM streams (e.g., itag 251) often fail to
+          // play and throw MEDIA_ERROR_UNKNOWN(1).
+          List<AudioOnlyStreamInfo> pickable = audioStreams
+              .where(
+                (stream) =>
+                    stream.container == StreamContainer.mp4 ||
+                    stream.audioCodec.toLowerCase().contains('aac'),
+              )
+              .toList();
 
-          return sortedStreams.last.url.toString();
+          if (pickable.isEmpty) {
+            pickable = audioStreams.toList();
+          }
+
+          pickable.sort(
+            (a, b) =>
+                a.bitrate.bitsPerSecond.compareTo(b.bitrate.bitsPerSecond),
+          );
+
+          return pickable.last.url.toString();
         } catch (_) {
           // Try next candidate.
           continue;

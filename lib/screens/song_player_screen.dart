@@ -4,8 +4,8 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 import '../data/models/music_track.dart';
-import '../services/music_player.dart';
-import '../services/youtube_audio_service.dart';
+import '../data/services/music_player.dart';
+import '../data/services/youtube_audio_service.dart';
 
 class SongPlayerScreen extends StatefulWidget {
   const SongPlayerScreen({super.key, required this.track});
@@ -62,7 +62,10 @@ class _SongPlayerScreenState extends State<SongPlayerScreen> {
 
     try {
       final url = await _youtubeAudioService.fetchBestAudioStreamUrl(query);
-      await _musicPlayer.play(url);
+      await _musicPlayer.play(
+        url,
+        headers: YoutubeAudioService.defaultHttpHeaders,
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() {

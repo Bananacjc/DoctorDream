@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../data/services/gemini_service.dart';
 import '../data/models/user_info.dart';
 import '../data/models/music_track.dart';
-import '../services/youtube_audio_service.dart';
+import '../data/services/youtube_audio_service.dart';
 import 'song_player_screen.dart';
 
 class RecommendScreen extends StatefulWidget {
@@ -17,34 +17,37 @@ class _RecommendScreenState extends State<RecommendScreen> {
   bool _isLoading = true;
   String? _error;
 
-  // Music recommendations
-  // ignore: unused_field
   String? _musicRecommendations;
   String? _musicInlineAnswer;
   List<MusicTrack> _musicTracks = [];
 
-  // Video recommendations (placeholder for future)
-  // ignore: unused_field
   String? _videoRecommendations;
   String? _videoInlineAnswer;
 
-  // Exercise recommendations (placeholder for future)
-  // ignore: unused_field
   String? _exerciseRecommendations;
   String? _exerciseInlineAnswer;
 
-  // Article recommendations (placeholder for future)
-  // ignore: unused_field
   String? _articleRecommendations;
   String? _articleInlineAnswer;
 
-  // User information - can be updated from other screens or user input
+  // User information (emotional state, and other details) - can be updated from other screens or user input
   UserInfo _userInfo = UserInfo.defaultValues();
 
   @override
   void initState() {
     super.initState();
     _fetchRecommendations();
+  }
+
+  /// Check if Gemini response is an error message
+  bool _isErrorResponse(String response) {
+    final lower = response.toLowerCase();
+    return lower.contains('sorry') ||
+        lower.contains('trouble') ||
+        lower.contains('error') ||
+        lower.contains('unavailable') ||
+        lower.contains('try again') ||
+        response.startsWith('(') && response.contains('No');
   }
 
   /// Main function to fetch all recommendations
@@ -93,7 +96,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
     try {
       // Step 1: Get song recommendations from Gemini
       print(
-        '🎵 Fetching music recommendations from Gemini... (attempt ${retryCount + 1}/$maxRetries)',
+        'Fetching music recommendations from Gemini... (attempt ${retryCount + 1}/$maxRetries)',
       );
       final geminiResult = await GeminiService.instance.recommendMusic(
         userInfo: _userInfo,
@@ -106,7 +109,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
       if (_isErrorResponse(geminiResult)) {
         if (retryCount < maxRetries) {
           print(
-            '⚠️ Gemini returned error, retrying in ${retryDelays[retryCount]}s...',
+            'Gemini returned error, retrying in ${retryDelays[retryCount]}s...',
           );
           await Future.delayed(Duration(seconds: retryDelays[retryCount]));
           return _fetchMusic(retryCount: retryCount + 1);
@@ -146,22 +149,11 @@ class _RecommendScreenState extends State<RecommendScreen> {
             ? 'Service temporarily unavailable. Tap to retry.'
             : 'Error loading music recommendations. Tap to retry.';
       });
-      print('❌ Error fetching music: $e');
+      print('Error fetching music: $e');
     }
   }
 
-  /// Check if Gemini response is an error message
-  bool _isErrorResponse(String response) {
-    final lower = response.toLowerCase();
-    return lower.contains('sorry') ||
-        lower.contains('trouble') ||
-        lower.contains('error') ||
-        lower.contains('unavailable') ||
-        lower.contains('try again') ||
-        response.startsWith('(') && response.contains('No');
-  }
-
-  /// Fetch thumbnails for tracks in the background
+  /// Fetch music thumbnails for tracks in the background
   Future<void> _fetchThumbnails(List<MusicTrack> tracks) async {
     final youtubeService = YoutubeAudioService.instance;
     final updatedTracks = <MusicTrack>[];
@@ -256,6 +248,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
     }
   }
 
+  /// Navigation to song player screen for specific music clicked
   void _openSongPlayer(MusicTrack track) {
     Navigator.of(
       context,
@@ -332,7 +325,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
                     ),
                     SizedBox(height: 6),
                     Text(
-                      'Something here but i dont know',
+                      'Something here but i don''t know',
                       style: TextStyle(fontSize: 12, color: Color(0xFF9AA5C4)),
                     ),
                   ],
@@ -565,6 +558,7 @@ class _SectionRow extends StatelessWidget {
   }
 }
 
+/// Handle showing the row of the music grid (Parent (1))
 class _MusicGrid extends StatelessWidget {
   final bool isLoading;
   final List<MusicTrack> tracks;
@@ -620,19 +614,29 @@ class _MusicGrid extends StatelessWidget {
     }
 
     if (tracks.isEmpty) {
-      return const SizedBox(
-        height: 80,
-        child: Center(
-          child: Text(
-            'No songs yet. Try refreshing.',
-            style: TextStyle(color: Color(0xFF9AA5C4)),
-          ),
+      return SizedBox(
+        height: 195,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: 4,
+          padding: EdgeInsets.zero,
+          separatorBuilder: (_, __) => const SizedBox(width: 16),
+          itemBuilder: (context, index) {
+            return Container(
+              width: 150,
+              decoration: BoxDecoration(
+                color: const Color(0xFF0D2357),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Center(child: _PlayGlyph()),
+            );
+          },
         ),
       );
     }
 
     return SizedBox(
-      height: 200,
+      height: 195,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: tracks.length,
@@ -653,6 +657,7 @@ class _MusicGrid extends StatelessWidget {
   }
 }
 
+/// Specific music song details of GRID card (Child (1a))
 class _MusicTrackCard extends StatelessWidget {
   final MusicTrack track;
   final VoidCallback onTap;
@@ -674,7 +679,8 @@ class _MusicTrackCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
         ),
         child: SizedBox(
-          height: 176, // Fixed height to prevent overflow (200 - 24 padding)
+          height: 176,
+          width: 140,
           child: Padding(
             padding: const EdgeInsets.all(12.0),
             child: Column(
@@ -685,41 +691,51 @@ class _MusicTrackCard extends StatelessWidget {
                   initials: track.title,
                   thumbnailUrl: track.thumbnailUrl,
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  track.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  track.artist,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFFB4BEDA),
-                  ),
-                ),
-                if (track.note != null) ...[
-                  const SizedBox(height: 4),
-                  Flexible(
-                    child: Text(
-                      track.note!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: Color(0xFF9AA5C4),
+                const SizedBox(height: 8),
+
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        track.title,
+                        maxLines: 1, // Avoid text overflow
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          fontSize: 14,
+                          height: 1.2,
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 2),
+                      Text(
+                        track.artist,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFFB4BEDA),
+                        ),
+                      ),
+
+                      if (track.note != null) ...[
+                        const SizedBox(height: 2),
+                        Flexible(
+                          child: Text(
+                            track.note!,
+                            maxLines: 1, // Reduced to 1 to save space
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Color(0xFF9AA5C4),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
+                ),
               ],
             ),
           ),
@@ -729,6 +745,7 @@ class _MusicTrackCard extends StatelessWidget {
   }
 }
 
+/// Handle show the specific song thumbnail details (Child (1b))
 class _AlbumThumb extends StatelessWidget {
   final String initials;
   final String? thumbnailUrl;
@@ -758,6 +775,7 @@ class _AlbumThumb extends StatelessWidget {
   }
 }
 
+/// Placeholder of thumbnail if failed to load (Child (1c))
 class _Placeholder extends StatelessWidget {
   final String display;
 
@@ -793,7 +811,7 @@ class _CardRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 92,
+      height: 195,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: 4,
@@ -801,7 +819,7 @@ class _CardRow extends StatelessWidget {
         separatorBuilder: (_, __) => const SizedBox(width: 16),
         itemBuilder: (context, index) {
           return Container(
-            width: 92,
+            width: 150,
             decoration: BoxDecoration(
               color: const Color(0xFF0D2357),
               borderRadius: BorderRadius.circular(14),
@@ -814,6 +832,7 @@ class _CardRow extends StatelessWidget {
   }
 }
 
+/// Play icon in Grid card
 class _PlayGlyph extends StatelessWidget {
   final Color color;
   const _PlayGlyph({this.color = const Color(0xFF9AA5C4)});
@@ -831,5 +850,3 @@ class _PlayGlyph extends StatelessWidget {
     );
   }
 }
-
-// Inline-only display now; list implementation removed.
