@@ -5,7 +5,7 @@ class DreamEntry {
   String dreamTitle;
   String dreamContent;
   DreamEntryStatus status;
-  DateTime creationAt;
+  DateTime createdAt;
   DateTime updatedAt;
   bool isFavourite;
 
@@ -13,7 +13,7 @@ class DreamEntry {
     required this.dreamID,
     required this.dreamTitle,
     required this.dreamContent,
-    required this.creationAt,
+    required this.createdAt,
     required this.updatedAt,
     this.status = DreamEntryStatus.draft,
     this.isFavourite = false,
