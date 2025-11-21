@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'calm_kit_screen.dart';
 import 'contact_screen.dart';
 import 'emergency_screen.dart';
+import 'review_screen.dart';
 import 'safety_plan_screen.dart';
 import 'user_information_screen.dart';
 
@@ -18,7 +19,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final ScrollController _scrollController = ScrollController();
-  
+
   // Logic variables
   double _pullDistance = 0.0;
   final double _triggerThreshold = 70.0; // Distance to pull to trigger (reduced for easier activation)
@@ -59,12 +60,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
       }
     }
-    
+
     // Also check ScrollUpdateNotification as fallback
     if (notification is ScrollUpdateNotification) {
       final metrics = notification.metrics;
       final overscroll = metrics.pixels - metrics.maxScrollExtent;
-      
+
       if (overscroll > 0) {
         setState(() {
           _pullDistance = overscroll;
@@ -105,7 +106,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _triggerEmergency() async {
     setState(() => _isTriggered = true);
-    
+
     // Distinct Emergency Haptics
     HapticFeedback.heavyImpact();
     await Future.delayed(const Duration(milliseconds: 100));
@@ -116,14 +117,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // Navigate immediately
     await Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const EmergencyScreen(),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const EmergencyScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           // Slide up from bottom animation (Urgent feel)
           const begin = Offset(0.0, 1.0);
           const end = Offset.zero;
           const curve = Curves.easeOutExpo;
-          var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-          return SlideTransition(position: animation.drive(tween), child: child);
+          var tween = Tween(
+            begin: begin,
+            end: end,
+          ).chain(CurveTween(curve: curve));
+          return SlideTransition(
+            position: animation.drive(tween),
+            child: child,
+          );
         },
       ),
     );
@@ -153,7 +161,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: CustomScrollView(
             controller: _scrollController,
             // IMPORTANT: BouncingScrollPhysics is required for this effect to work on Android
-            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
             slivers: [
               // --- Header ---
               SliverToBoxAdapter(
@@ -177,11 +187,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   padding: pagePadding.copyWith(top: 16.0),
                   child: Row(
                     children: const [
-                      Expanded(child: _InfoCard(color: Color(0xFFFAD7B7), icon: Icons.local_fire_department_outlined, iconColor: Colors.red)),
+                      Expanded(
+                        child: _InfoCard(
+                          color: Color(0xFFFAD7B7),
+                          icon: Icons.local_fire_department_outlined,
+                          iconColor: Colors.red,
+                        ),
+                      ),
                       SizedBox(width: 12),
-                      Expanded(child: _InfoCard(color: Color(0xFFB7B9FF), icon: Icons.nightlight_round_outlined, iconColor: Color(0xFF081944))),
+                      Expanded(
+                        child: _InfoCard(
+                          color: Color(0xFFB7B9FF),
+                          icon: Icons.nightlight_round_outlined,
+                          iconColor: Color(0xFF081944),
+                        ),
+                      ),
                       SizedBox(width: 12),
-                      Expanded(child: _InfoCard(color: Color(0xFFA7E8D7), icon: Icons.emoji_events_outlined, iconColor: Colors.green)),
+                      Expanded(
+                        child: _InfoCard(
+                          color: Color(0xFFA7E8D7),
+                          icon: Icons.emoji_events_outlined,
+                          iconColor: Colors.green,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -194,11 +222,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Recently 30 days Mood Trend', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
+                      const Text(
+                        'Recently 30 days Mood Trend',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
                       const SizedBox(height: 16),
                       Container(
                         height: 110,
-                        decoration: BoxDecoration(color: Colors.transparent, borderRadius: BorderRadius.circular(12)),
+                        decoration: BoxDecoration(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         child: const _MoodTrendGraph(),
                       ),
                     ],
@@ -212,15 +250,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   padding: pagePadding.copyWith(top: 24.0),
                   child: Column(
                     children: [
-                      _ActionItem(icon: Icons.person_outline, title: 'User Information', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const UserInformationScreen()))),
+                      _ActionItem(
+                        icon: Icons.person_outline,
+                        title: 'User Information',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const UserInformationScreen(),
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 12),
-                      _ActionItem(icon: Icons.phone_outlined, title: 'Family/Friend Contact', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ContactScreen()))),
+                      _ActionItem(
+                        icon: Icons.phone_outlined,
+                        title: 'Family/Friend Contact',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ContactScreen(),
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 12),
-                      _ActionItem(icon: Icons.favorite_outline, title: 'My Calm Kit / Favorites', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalmKitScreen()))),
+                      _ActionItem(
+                        icon: Icons.favorite_outline,
+                        title: 'My Calm Kit / Favorites',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const CalmKitScreen(),
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 12),
-                      _ActionItem(icon: Icons.access_time_outlined, title: 'Mood Journal / Dream History', onTap: () {}),
+                      _ActionItem(
+                        icon: Icons.access_time_outlined,
+                        title: 'Mood Journal / Dream History',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ReviewScreen(),
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 12),
-                      _ActionItem(icon: Icons.add_circle_outline, title: 'Safety Plan', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SafetyPlanScreen()))),
+                      _ActionItem(
+                        icon: Icons.add_circle_outline,
+                        title: 'Safety Plan',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const SafetyPlanScreen(),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -233,29 +311,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   height: 120, // Fixed height area for the gesture visual
                   padding: const EdgeInsets.only(top: 20),
                   child: Opacity(
-                    opacity: _pullDistance > 5 ? 1.0 : 0.0, // Hide if not pulling
+                    opacity: _pullDistance > 5
+                        ? 1.0
+                        : 0.0, // Hide if not pulling
                     child: Column(
                       children: [
                         // Dynamic Icon
                         Icon(
-                          progress >= 1.0 ? Icons.gpp_good : Icons.keyboard_double_arrow_up,
-                          color: progress >= 1.0 ? Colors.redAccent : Colors.white54,
+                          progress >= 1.0
+                              ? Icons.gpp_good
+                              : Icons.keyboard_double_arrow_up,
+                          color: progress >= 1.0
+                              ? Colors.redAccent
+                              : Colors.white54,
                           size: 32 + (progress * 10), // Icon grows
                         ),
                         const SizedBox(height: 8),
-                        
+
                         // Dynamic Text
                         Text(
-                          progress >= 1.0 ? 'RELEASE FOR HELP' : 'PULL UP FOR EMERGENCY',
+                          progress >= 1.0
+                              ? 'RELEASE FOR HELP'
+                              : 'PULL UP FOR EMERGENCY',
                           style: TextStyle(
-                            color: progress >= 1.0 ? Colors.redAccent : Colors.white54,
+                            color: progress >= 1.0
+                                ? Colors.redAccent
+                                : Colors.white54,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1.2,
                             fontSize: 14,
                           ),
                         ),
                         const SizedBox(height: 12),
-                        
+
                         // Progress Bar
                         Container(
                           width: 200,
@@ -270,11 +358,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 widthFactor: progress,
                                 child: Container(
                                   decoration: BoxDecoration(
-                                    color: progress >= 1.0 ? Colors.red : Colors.redAccent.withOpacity(0.5),
+                                    color: progress >= 1.0
+                                        ? Colors.red
+                                        : Colors.redAccent.withOpacity(0.5),
                                     borderRadius: BorderRadius.circular(3),
-                                    boxShadow: progress >= 1.0 ? [
-                                      BoxShadow(color: Colors.red.withOpacity(0.6), blurRadius: 10, spreadRadius: 2)
-                                    ] : null,
+                                    boxShadow: progress >= 1.0
+                                        ? [
+                                            BoxShadow(
+                                              color: Colors.red.withOpacity(
+                                                0.6,
+                                              ),
+                                              blurRadius: 10,
+                                              spreadRadius: 2,
+                                            ),
+                                          ]
+                                        : null,
                                   ),
                                 ),
                               ),
@@ -287,7 +385,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
               // Add extra padding at the bottom so the scroll view has room to bounce
-              const SliverPadding(padding: EdgeInsets.only(bottom: 1)), 
+              const SliverPadding(padding: EdgeInsets.only(bottom: 1)),
             ],
           ),
         ),
@@ -300,7 +398,7 @@ class _InfoCard extends StatelessWidget {
   final Color color;
   final IconData icon;
   final Color iconColor;
-  
+
   const _InfoCard({
     required this.color,
     required this.icon,
@@ -318,11 +416,7 @@ class _InfoCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            color: iconColor,
-            size: 32,
-          ),
+          Icon(icon, color: iconColor, size: 32),
           const SizedBox(height: 12),
           const Text(
             'Continuous record 7 days',
@@ -343,10 +437,7 @@ class _MoodTrendGraph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _GraphPainter(),
-      child: Container(),
-    );
+    return CustomPaint(painter: _GraphPainter(), child: Container());
   }
 }
 
@@ -385,7 +476,12 @@ class _GraphPainter extends CustomPainter {
         (previous.dx + current.dx) / 2,
         (previous.dy + current.dy) / 2,
       );
-      path.quadraticBezierTo(previous.dx, previous.dy, midPoint.dx, midPoint.dy);
+      path.quadraticBezierTo(
+        previous.dx,
+        previous.dy,
+        midPoint.dx,
+        midPoint.dy,
+      );
     }
 
     // Ensure the final segment reaches the last point.
@@ -426,11 +522,7 @@ class _ActionItem extends StatelessWidget {
         ],
       ),
       child: ListTile(
-        leading: Icon(
-          icon,
-          color: Colors.black87,
-          size: 24,
-        ),
+        leading: Icon(icon, color: Colors.black87, size: 24),
         title: Text(
           title,
           style: const TextStyle(
@@ -439,14 +531,9 @@ class _ActionItem extends StatelessWidget {
             color: Colors.black87,
           ),
         ),
-        trailing: const Icon(
-          Icons.chevron_right,
-          color: Colors.black54,
-        ),
+        trailing: const Icon(Icons.chevron_right, color: Colors.black54),
         onTap: onTap,
       ),
     );
   }
 }
-
-
