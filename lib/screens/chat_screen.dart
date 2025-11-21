@@ -27,7 +27,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _hasUserSentMessage = false;
   
   // User information - can be updated from other screens or user input
-  UserInfo _userInfo = UserInfo.defaultValues();
+  final UserInfo _userInfo = UserInfo.defaultValues();
 
   static const Color navy = Color(0xFF081944);
   static const Color accent = Color(0xFFB7B9FF);

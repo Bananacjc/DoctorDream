@@ -1,53 +1,54 @@
-import 'dart:io';
-import 'package:audioplayers/audioplayers.dart';
-import 'package:http/http.dart' as http; // Requires 'http' package
-import 'package:path_provider/path_provider.dart'; // Requires 'path_provider' package
+import 'dart:async';
+import 'package:just_audio/just_audio.dart';
 
 class MusicPlayer {
-  MusicPlayer({AudioPlayer? player}) : _player = player ?? AudioPlayer();
-  final AudioPlayer _player;
+  // Singleton pattern to ensure only one player exists
+  static final MusicPlayer _instance = MusicPlayer._internal();
+  factory MusicPlayer() => _instance;
+  MusicPlayer._internal();
 
-  Stream<PlayerState> get playerStateStream => _player.onPlayerStateChanged;
-  Stream<Duration> get positionStream => _player.onPositionChanged;
-  Stream<Duration> get durationStream => _player.onDurationChanged;
+  final AudioPlayer _player = AudioPlayer();
 
-  Future<void> play(String url, {Map<String, String>? headers}) async {
-    await _player.stop();
+  // Expose streams for the UI
+  Stream<PlayerState> get playerStateStream => _player.playerStateStream;
+  Stream<Duration> get positionStream => _player.positionStream;
+  Stream<Duration?> get durationStream => _player.durationStream;
 
-    // 1. Define Headers
-    final requestHeaders = headers ??
-        {
-          'User-Agent':
-          'Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-        };
-
+  /// Plays a YouTube URL with the required headers to bypass 403 errors
+  Future<void> playUrl(String url) async {
     try {
-      // 2. Download the file manually
-      final response = await http.get(Uri.parse(url), headers: requestHeaders);
+      // STOP whatever is playing first
+      if (_player.playing) await _player.stop();
 
-      if (response.statusCode == 200) {
-        // 3. Save to a temporary file
-        final dir = await getTemporaryDirectory();
-        final file = File('${dir.path}/temp_audio.mp3');
-        await file.writeAsBytes(response.bodyBytes);
+      // 1. Define the headers that trick YouTube
+      final headers = {
+        'User-Agent': 'Mozilla/5.0 ...',
+        'Referer': 'https://www.youtube.com/',
+      };
 
-        // 4. Play the file
-        await _player.play(DeviceFileSource(file.path));
-      } else {
-        print('Failed to load audio: ${response.statusCode}');
-      }
+      // 2. Load the Audio Source with headers
+      await _player.setAudioSource(
+        AudioSource.uri(
+          Uri.parse(url),
+          // Try REMOVING the headers if playback fails.
+          // Often the URL from youtube_explode already contains the necessary signature.
+        ),
+      );
+
+      // 3. Start Playing
+      await _player.play();
     } catch (e) {
       print('Error playing audio: $e');
+      throw Exception('Failed to start playback: $e');
     }
   }
 
   Future<void> pause() => _player.pause();
-
-  Future<void> resume() => _player.resume();
-
+  Future<void> resume() => _player.play();
   Future<void> seek(Duration position) => _player.seek(position);
-
   Future<void> stop() => _player.stop();
-
-  Future<void> dispose() => _player.dispose();
+  
+  void dispose() {
+    _player.dispose();
+  }
 }

@@ -31,7 +31,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
   String? _articleInlineAnswer;
 
   // User information (emotional state, and other details) - can be updated from other screens or user input
-  UserInfo _userInfo = UserInfo.defaultValues();
+  final UserInfo _userInfo = UserInfo.defaultValues();
 
   @override
   void initState() {

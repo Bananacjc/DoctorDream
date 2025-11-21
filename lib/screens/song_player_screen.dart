@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
 
 import '../data/models/music_track.dart';
 import '../data/services/music_player.dart';
@@ -21,7 +21,7 @@ class _SongPlayerScreenState extends State<SongPlayerScreen> {
   final YoutubeAudioService _youtubeAudioService = YoutubeAudioService.instance;
 
   StreamSubscription<Duration>? _positionSub;
-  StreamSubscription<Duration>? _durationSub;
+  StreamSubscription<Duration?>? _durationSub;
   StreamSubscription<PlayerState>? _stateSub;
 
   Duration _position = Duration.zero;
@@ -38,38 +38,28 @@ class _SongPlayerScreenState extends State<SongPlayerScreen> {
     _loadAndPlay();
   }
 
-  void _listenToPlayer() {
-    _positionSub = _musicPlayer.positionStream.listen((value) {
-      setState(() => _position = value);
-    });
-
-    _durationSub = _musicPlayer.durationStream.listen((value) {
-      setState(() => _duration = value);
-    });
-
-    _stateSub = _musicPlayer.playerStateStream.listen((state) {
-      setState(() => _isPlaying = state == PlayerState.playing);
-    });
-  }
-
-  Future<void> _loadAndPlay() async {
+Future<void> _loadAndPlay() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _error = null;
     });
 
-    final query = widget.track.buildSearchQuery();
+    // Build query from track title and artist
+    final query = "${widget.track.title} ${widget.track.artist} audio";
 
     try {
-      final url = await _youtubeAudioService.fetchBestAudioStreamUrl(query);
-      await _musicPlayer.play(
-        url,
-        headers: YoutubeAudioService.defaultHttpHeaders,
-      );
+      // 1. Get the URL (Takes ~1 second)
+      final url = await _youtubeAudioService.fetchAudioStreamUrl(query);
+      
+      // 2. Stream it immediately
+      await _musicPlayer.playUrl(url);
+      
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Unable to play this song right now.';
+        _error = 'Could not play this song. (Region lock or Network)';
+        print("Playback error: $e");
       });
     } finally {
       if (mounted) {
@@ -78,6 +68,23 @@ class _SongPlayerScreenState extends State<SongPlayerScreen> {
         });
       }
     }
+  }
+  
+  // Also update your listener, just_audio uses different state names
+  void _listenToPlayer() {
+    _positionSub = _musicPlayer.positionStream.listen((value) {
+      setState(() => _position = value);
+    });
+
+    // Note: just_audio duration can be null initially
+    _durationSub = _musicPlayer.durationStream.listen((value) {
+      if (value != null) setState(() => _duration = value);
+    });
+
+    _stateSub = _musicPlayer.playerStateStream.listen((state) {
+      final isCompleted = state.processingState == ProcessingState.completed;
+      setState(() => _isPlaying = state.playing && !isCompleted);
+    });
   }
 
   Future<void> _togglePlay() async {
@@ -99,7 +106,7 @@ class _SongPlayerScreenState extends State<SongPlayerScreen> {
     _positionSub?.cancel();
     _durationSub?.cancel();
     _stateSub?.cancel();
-    _musicPlayer.dispose();
+    _musicPlayer.stop();
     super.dispose();
   }
 
