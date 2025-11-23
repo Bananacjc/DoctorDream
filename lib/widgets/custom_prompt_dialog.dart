@@ -19,61 +19,76 @@ class CustomPromptDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
-    return Container(
-      margin: EdgeInsets.symmetric(vertical: 16),
-      padding: EdgeInsets.all(16),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(32),
-        color: Theme.of(context).colorScheme.secondaryContainer,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Title + close button
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Material(
+      type: MaterialType.transparency,
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                title,
-                style: GoogleFonts.robotoFlex(
-                  color: Theme.of(context).colorScheme.onSecondaryContainer,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+              Container(
+                margin: EdgeInsets.symmetric(vertical: 16),
+                padding: EdgeInsets.all(16),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(32),
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title + close button
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          title,
+                          style: GoogleFonts.robotoFlex(
+                            color: Theme.of(context).colorScheme.onSecondaryContainer,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        isClosable
+                            ? IconButton(
+                                onPressed: () {
+                                  Navigator.pop(context, false);
+                                },
+                                icon: Icon(
+                                  Icons.close,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSecondaryContainer,
+                                ),
+                              )
+                            : Container(),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Description
+                    Text(
+                      description,
+                      style: GoogleFonts.robotoFlex(
+                        color: Theme.of(context).colorScheme.onSecondaryContainer,
+                        fontSize: 20,
+                      ),
+                      textAlign: TextAlign.left,
+                    ),
+                    const SizedBox(height: 24),
+                    // Actions
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [...actions.map((e) => Expanded(child: e))],
+                    ),
+                  ],
                 ),
               ),
-              isClosable
-                  ? IconButton(
-                      onPressed: () {},
-                      icon: Icon(
-                        Icons.close,
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSecondaryContainer,
-                      ),
-                    )
-                  : Container(),
             ],
           ),
-          const SizedBox(height: 16),
-          // Description
-          Text(
-            description,
-            style: GoogleFonts.robotoFlex(
-              color: Theme.of(context).colorScheme.onSecondaryContainer,
-              fontSize: 20,
-            ),
-            textAlign: TextAlign.left,
-          ),
-          const SizedBox(height: 24),
-          // Actions
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [...actions.map((e) => Expanded(child: e))],
-          ),
-        ],
+        ),
       ),
     );
   }

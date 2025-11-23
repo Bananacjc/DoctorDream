@@ -7,7 +7,14 @@ enum ButtonType {
     backgroundColor: ColorConstant.secondaryContainer,
     textColor: ColorConstant.onSecondaryContainer,
   ),
-  navigate(backgroundColor: ColorConstant.success, textColor: ColorConstant.onSuccess);
+  confirm(
+    backgroundColor: ColorConstant.success,
+    textColor: ColorConstant.onSuccess,
+  ),
+  warning(
+    backgroundColor: ColorConstant.error,
+    textColor: ColorConstant.onError,
+  );
 
   final Color backgroundColor;
   final Color textColor;
@@ -33,9 +40,7 @@ class CustomTextButton extends StatelessWidget {
       onPressed: onPressed,
       style: TextButton.styleFrom(
         backgroundColor: type.backgroundColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20)
-        )
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       child: Text(
         buttonText,

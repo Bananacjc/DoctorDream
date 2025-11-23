@@ -2,7 +2,16 @@ import 'package:flutter/material.dart';
 import 'widgets/custom_bottom_navigation_bar.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-void main() {
+import './data/local/local_database.dart';
+
+void main() async{
+  // Ensure Flutter bindings are initialized
+  WidgetsFlutterBinding.ensureInitialized();
+
+  //Initialize the database
+  await LocalDatabase.instance.database;
+
+  // Run the app
   runApp(const MyApp());
 }
 
