@@ -2,11 +2,13 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../models/user_profile.dart';
+import '../models/dream_entry.dart';
+import '../../constants/string_constant.dart';
 
 class LocalDatabase {
   LocalDatabase._();
 
-  static const _dbName = 'doctor_dream.db';
+  static const _dbName = StringConstant.dbName;
   static const _dbVersion = 1;
 
   static final LocalDatabase instance = LocalDatabase._();
@@ -94,11 +96,11 @@ class LocalDatabase {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS dream_entries (
         dream_id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        content TEXT,
-        status INTEGER,
+        dream_title TEXT NOT NULL,
+        dream_content TEXT,
         created_at TEXT,
         updated_at TEXT,
+        status INTEGER,
         is_favourite INTEGER DEFAULT 0
       )
     ''');
@@ -134,6 +136,54 @@ class LocalDatabase {
   // Future<List<CalmResource>> fetchCalmResources() async { ... }
 
   // Dream entries -----------------------------------------------------------
-  // TODO: Implement when dream_entry model is available
-  // Future<List<DreamEntry>> fetchDreamEntries() async { ... }
+  Future<void> upsertDreamEntry(DreamEntry entry) async {
+    final db = await database;
+    await db.insert(
+      StringConstant.dreamEntryTable,
+      entry.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<DreamEntry>> fetchDreamEntries() async {
+    final db = await database;
+    final result = await db.query(
+      StringConstant.dreamEntryTable,
+      orderBy: 'updated_at DESC',
+    );
+    return result.map((map) => DreamEntry.fromMap(map)).toList();
+  }
+
+  Future<DreamEntry?> getDreamEntryById(String id) async {
+    final db = await database;
+    final result = await db.query(
+      StringConstant.dreamEntryTable,
+      where: 'dream_id = ?',
+      whereArgs: [id],
+    );
+
+    if (result.isNotEmpty) {
+      return DreamEntry.fromMap(result.first);
+    }
+    return null;
+  }
+
+  Future<void> deleteDreamEntry(String id) async {
+    final db = await database;
+    await db.delete(
+      StringConstant.dreamEntryTable,
+      where: 'dream_id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> setDreamFavourite(String id, bool isFavourite) async {
+    final db = await database;
+    await db.update(
+      StringConstant.dreamEntryTable,
+        {'is_favourite': isFavourite ? 1 : 0},
+      where: 'dream_id = ?',
+      whereArgs: [id],
+    );
+  }
 }
