@@ -1,10 +1,13 @@
 import 'dart:developer';
 
+import 'package:doctor_dream/view_models/dream_detail_view_model.dart';
+import 'package:doctor_dream/widgets/custom_prompt_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../constants/color_constant.dart';
 import '../data/models/dream_entry.dart';
+import '../widgets/custom_button.dart';
 
 class DreamDetailScreen extends StatefulWidget {
   final DreamEntry dreamEntry;
@@ -16,6 +19,8 @@ class DreamDetailScreen extends StatefulWidget {
 }
 
 class _DreamDetailScreenState extends State<DreamDetailScreen> {
+  final _viewModel = DreamDetailViewModel();
+
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
@@ -32,7 +37,7 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -103,16 +108,51 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
                         child: Icon(Icons.edit, size: 24),
                       ),
                     ),
-
                     SizedBox(width: 16),
                     SizedBox(
                       width: 48,
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: () {
-                          //TODO: add function
-                          log("Delete dream");
-                        },
+                        onPressed: _viewModel.isDeleting
+                            ? null
+                            : () async {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) => CustomPromptDialog(
+                                    title: 'Delete this Dream?',
+                                    isClosable: true,
+                                    description:
+                                        "Once deleted, you won't be able to "
+                                        "get it back.",
+                                    actions: [
+                                      CustomTextButton(
+                                        buttonText: 'Cancel',
+                                        type: ButtonType.cancel,
+                                        onPressed: () {
+                                          Navigator.pop(context, false);
+                                        },
+                                      ),
+                                      CustomTextButton(
+                                        buttonText: "Delete",
+                                        type: ButtonType.confirm,
+                                        onPressed: () {
+                                          Navigator.pop(context, true);
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                );
+
+                                if (confirm == true) {
+                                  final success = await _viewModel.deleteDream(
+                                    thisEntry.dreamID,
+                                  );
+                                  if (success && mounted) {
+                                    Navigator.pop(context, true);
+                                  }
+                                }
+                                log("Delete dream");
+                              },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: ColorConstant.primaryContainer,
                           foregroundColor: ColorConstant.onPrimaryContainer,
@@ -126,7 +166,6 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
                     ),
                   ],
                 ),
-
                 SizedBox(
                   width: 48,
                   height: 48,
