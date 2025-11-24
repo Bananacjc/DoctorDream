@@ -1,15 +1,17 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
-import '../models/user_profile.dart';
 import '../models/dream_entry.dart';
+import '../models/safety_plan.dart';
+import '../models/support_contact.dart';
+import '../models/user_profile.dart';
 import '../../constants/string_constant.dart';
 
 class LocalDatabase {
   LocalDatabase._();
 
   static const _dbName = StringConstant.dbName;
-  static const _dbVersion = 1;
+  static const _dbVersion = 2;
 
   static final LocalDatabase instance = LocalDatabase._();
 
@@ -37,26 +39,47 @@ class LocalDatabase {
   }
 
   Future<void> _ensureTablesExist(Database db) async {
-    // Check if user_profile table exists
-    final tables = await db.rawQuery(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='user_profile'",
-    );
-    if (tables.isEmpty) {
-      // Table doesn't exist, create it
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS user_profile (
-          id INTEGER PRIMARY KEY,
-          full_name TEXT,
-          pronouns TEXT,
-          birthday TEXT,
-          email TEXT,
-          phone TEXT,
-          location TEXT,
-          notes TEXT,
-          updated_at TEXT
-        )
-      ''');
-    }
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS user_profile (
+        id INTEGER PRIMARY KEY,
+        full_name TEXT,
+        pronouns TEXT,
+        birthday TEXT,
+        email TEXT,
+        phone TEXT,
+        location TEXT,
+        notes TEXT,
+        updated_at TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS support_contacts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        relationship TEXT,
+        phone TEXT NOT NULL,
+        created_at TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS safety_plans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        created_at TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS safety_plan_steps (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        plan_id INTEGER NOT NULL,
+        step_order INTEGER,
+        description TEXT NOT NULL,
+        FOREIGN KEY (plan_id) REFERENCES safety_plans(id) ON DELETE CASCADE
+      )
+    ''');
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -81,6 +104,24 @@ class LocalDatabase {
         relationship TEXT,
         phone TEXT NOT NULL,
         created_at TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS safety_plans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        created_at TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS safety_plan_steps (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        plan_id INTEGER NOT NULL,
+        step_order INTEGER,
+        description TEXT NOT NULL,
+        FOREIGN KEY (plan_id) REFERENCES safety_plans(id) ON DELETE CASCADE
       )
     ''');
 
@@ -128,8 +169,116 @@ class LocalDatabase {
   }
 
   // Support contacts --------------------------------------------------------
-  // TODO: Implement when support_contact model is available
-  // Future<List<SupportContact>> fetchContacts() async { ... }
+  Future<List<SupportContact>> fetchSupportContacts() async {
+    final db = await database;
+    await _ensureTablesExist(db);
+    final result = await db.query(
+      StringConstant.supportContactsTable,
+      orderBy: 'created_at DESC, id DESC',
+    );
+    return result.map(SupportContact.fromMap).toList();
+  }
+
+  Future<SupportContact> insertSupportContact(SupportContact contact) async {
+    final db = await database;
+    await _ensureTablesExist(db);
+    final timestamped = contact.copyWith(createdAt: DateTime.now());
+    final map = timestamped.toMap()..remove('id');
+    final id = await db.insert(
+      StringConstant.supportContactsTable,
+      map,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    return timestamped.copyWith(id: id);
+  }
+
+  Future<void> deleteSupportContact(int id) async {
+    final db = await database;
+    await _ensureTablesExist(db);
+    await db.delete(
+      StringConstant.supportContactsTable,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // Safety plans ------------------------------------------------------------
+  Future<List<SafetyPlan>> fetchSafetyPlans() async {
+    final db = await database;
+    await _ensureTablesExist(db);
+    final planRows = await db.query(
+      StringConstant.safetyPlansTable,
+      orderBy: 'created_at DESC, id DESC',
+    );
+    if (planRows.isEmpty) return [];
+
+    final planIds = planRows.map((row) => row['id']).whereType<int>().toList();
+    if (planIds.isEmpty) {
+      return planRows.map((row) => SafetyPlan.fromMap(row, const [])).toList();
+    }
+
+    final placeholders = List.filled(planIds.length, '?').join(',');
+    final stepRows = await db.query(
+      StringConstant.safetyPlanStepsTable,
+      where: 'plan_id IN ($placeholders)',
+      whereArgs: planIds,
+      orderBy: 'plan_id ASC, step_order ASC, id ASC',
+    );
+
+    final stepsByPlan = <int, List<String>>{};
+    for (final row in stepRows) {
+      final planId = row['plan_id'] as int?;
+      if (planId == null) continue;
+      stepsByPlan.putIfAbsent(planId, () => []);
+      stepsByPlan[planId]!.add(row['description'] as String? ?? '');
+    }
+
+    return planRows.map((row) {
+      final planId = row['id'] as int?;
+      final steps =
+          planId != null ? List<String>.from(stepsByPlan[planId] ?? []) : <String>[];
+      return SafetyPlan.fromMap(row, steps);
+    }).toList();
+  }
+
+  Future<SafetyPlan> insertSafetyPlan(SafetyPlan plan) async {
+    final db = await database;
+    await _ensureTablesExist(db);
+    return db.transaction((txn) async {
+      final timestamped = plan.copyWith(createdAt: DateTime.now());
+      final planMap = timestamped.toMap()..remove('id');
+      final planId = await txn.insert(
+        StringConstant.safetyPlansTable,
+        planMap,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      for (var index = 0; index < timestamped.steps.length; index++) {
+        final step = timestamped.steps[index];
+        await txn.insert(
+          StringConstant.safetyPlanStepsTable,
+          {
+            'plan_id': planId,
+            'step_order': index,
+            'description': step,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+
+      return timestamped.copyWith(id: planId);
+    });
+  }
+
+  Future<void> deleteSafetyPlan(int id) async {
+    final db = await database;
+    await _ensureTablesExist(db);
+    await db.delete(
+      StringConstant.safetyPlansTable,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
 
   // Calm resources ----------------------------------------------------------
   // TODO: Implement when calm_resource model is available
