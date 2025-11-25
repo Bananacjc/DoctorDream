@@ -18,7 +18,7 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
   int _currentIndex = 0; // Default to home screen
 
   final List<Widget> _pages = const <Widget>[
-    ReviewScreen(),
+    DreamReviewScreen(),
     DiagnosisScreen(),
     RecommendScreen(),
     ChatScreen(),

@@ -285,7 +285,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         title: 'Mood Journal / Dream History',
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => const ReviewScreen(),
+                            builder: (_) => const DreamReviewScreen(),
                           ),
                         ),
                       ),

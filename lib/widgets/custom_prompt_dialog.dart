@@ -2,6 +2,8 @@ import 'package:doctor_dream/widgets/custom_button.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../constants/color_constant.dart';
+
 class CustomPromptDialog extends StatelessWidget {
   final String title;
   final String description;
@@ -33,7 +35,7 @@ class CustomPromptDialog extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(32),
-                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  color: ColorConstant.secondary,
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -47,7 +49,7 @@ class CustomPromptDialog extends StatelessWidget {
                         Text(
                           title,
                           style: GoogleFonts.robotoFlex(
-                            color: Theme.of(context).colorScheme.onSecondaryContainer,
+                            color: ColorConstant.onSecondary,
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                           ),
@@ -72,7 +74,9 @@ class CustomPromptDialog extends StatelessWidget {
                     Text(
                       description,
                       style: GoogleFonts.robotoFlex(
-                        color: Theme.of(context).colorScheme.onSecondaryContainer,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSecondaryContainer,
                         fontSize: 20,
                       ),
                       textAlign: TextAlign.left,
@@ -80,8 +84,15 @@ class CustomPromptDialog extends StatelessWidget {
                     const SizedBox(height: 24),
                     // Actions
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [...actions.map((e) => Expanded(child: e))],
+                      children: List.generate(actions.length, (index) {
+                        return Expanded(
+                          child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 4),
+                              child: actions[index]),
+                        );
+                      }),
                     ),
                   ],
                 ),

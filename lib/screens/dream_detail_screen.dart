@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../constants/color_constant.dart';
 import '../data/models/dream_entry.dart';
 import '../widgets/custom_button.dart';
+import 'dream_edit_screen.dart';
 
 class DreamDetailScreen extends StatefulWidget {
   final DreamEntry dreamEntry;
@@ -20,6 +21,42 @@ class DreamDetailScreen extends StatefulWidget {
 
 class _DreamDetailScreenState extends State<DreamDetailScreen> {
   final _viewModel = DreamDetailViewModel();
+
+  @override
+  void dispose() {
+    _viewModel.dispose();
+    super.dispose();
+  }
+
+  Future<bool> _showDeleteConfirmDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => CustomPromptDialog(
+        title: 'Delete this Dream?',
+        isClosable: true,
+        description:
+            "Once deleted, you won't be able to "
+            "get it back.",
+        actions: [
+          CustomTextButton(
+            buttonText: 'Cancel',
+            type: ButtonType.cancel,
+            onPressed: () {
+              Navigator.pop(context, false);
+            },
+          ),
+          CustomTextButton(
+            buttonText: "Delete",
+            type: ButtonType.warning,
+            onPressed: () {
+              Navigator.pop(context, true);
+            },
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,8 +130,19 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
                       width: 48,
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: () {
-                          //TODO: add function
+                        onPressed: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => DreamEditScreen(
+                                dreamEntry: thisEntry,
+                              ),
+                            ),
+                          );
+
+                          if (result == true && context.mounted) {
+                            Navigator.pop(context, true);
+                          }
                           log("Edit dream");
                         },
                         style: ElevatedButton.styleFrom(
@@ -116,41 +164,17 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
                         onPressed: _viewModel.isDeleting
                             ? null
                             : () async {
-                                final confirm = await showDialog<bool>(
-                                  context: context,
-                                  builder: (context) => CustomPromptDialog(
-                                    title: 'Delete this Dream?',
-                                    isClosable: true,
-                                    description:
-                                        "Once deleted, you won't be able to "
-                                        "get it back.",
-                                    actions: [
-                                      CustomTextButton(
-                                        buttonText: 'Cancel',
-                                        type: ButtonType.cancel,
-                                        onPressed: () {
-                                          Navigator.pop(context, false);
-                                        },
-                                      ),
-                                      CustomTextButton(
-                                        buttonText: "Delete",
-                                        type: ButtonType.confirm,
-                                        onPressed: () {
-                                          Navigator.pop(context, true);
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                );
+                                final confirm =
+                                    await _showDeleteConfirmDialog();
+                                if (!confirm) return;
 
-                                if (confirm == true) {
-                                  final success = await _viewModel.deleteDream(
-                                    thisEntry.dreamID,
-                                  );
-                                  if (success && mounted) {
-                                    Navigator.pop(context, true);
-                                  }
+                                final success = await _viewModel.deleteDream(
+                                  thisEntry.dreamID,
+                                );
+                                if (success && context.mounted) {
+                                  Navigator.pop(context, true);
                                 }
+
                                 log("Delete dream");
                               },
                         style: ElevatedButton.styleFrom(
@@ -192,4 +216,5 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
       ),
     );
   }
+
 }
