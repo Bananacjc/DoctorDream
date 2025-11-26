@@ -1,20 +1,23 @@
 // lib/services/gemini_service.dart
 
+import 'dart:convert';
+
 import 'package:google_generative_ai/google_generative_ai.dart';
+import '../models/article_recommendation.dart';
 import '../models/user_info.dart';
 import 'gemini_prompts.dart';
 
 class GeminiService {
   // Singleton instance
   GeminiService._internal()
-      : _apiKey = const String.fromEnvironment('GEMINI_API_KEY'),
-        _modelName = 'gemini-2.5-flash';
+    : _apiKey = const String.fromEnvironment('GEMINI_API_KEY'),
+      _modelName = 'gemini-2.5-flash';
 
   static final GeminiService instance = GeminiService._internal();
-  
+
   final String _apiKey;
   final String _modelName;
-  
+
   // Chat session for maintaining conversation context
   ChatSession? _chatSession;
   UserInfo? _currentChatUserInfo;
@@ -62,7 +65,10 @@ class GeminiService {
   }
 
   /// Recommends YouTube videos based on user information
-  Future<String> recommendVideo({UserInfo? userInfo, String? additionalContext}) async {
+  Future<String> recommendVideo({
+    UserInfo? userInfo,
+    String? additionalContext,
+  }) async {
     try {
       final info = userInfo ?? UserInfo.defaultValues();
       final prompt = GeminiPrompts.buildVideoRecommendationPrompt(info);
@@ -74,7 +80,9 @@ class GeminiService {
 
       final response = await model.generateContent([Content.text(requestText)]);
       final reply = response.text?.trim();
-      return reply?.isNotEmpty == true ? reply! : '(No video recommendations available)';
+      return reply?.isNotEmpty == true
+          ? reply!
+          : '(No video recommendations available)';
     } catch (e) {
       print('Gemini API error (recommendVideo): $e');
       return 'Sorry, I had trouble generating video recommendations. Could you please try again?';
@@ -82,7 +90,10 @@ class GeminiService {
   }
 
   /// Recommends Spotify songs/playlists based on user information
-  Future<String> recommendMusic({UserInfo? userInfo, String? additionalContext}) async {
+  Future<String> recommendMusic({
+    UserInfo? userInfo,
+    String? additionalContext,
+  }) async {
     try {
       final info = userInfo ?? UserInfo.defaultValues();
       final prompt = GeminiPrompts.buildMusicRecommendationPrompt(info);
@@ -94,7 +105,9 @@ class GeminiService {
 
       final response = await model.generateContent([Content.text(requestText)]);
       final reply = response.text?.trim();
-      return reply?.isNotEmpty == true ? reply! : '(No music recommendations available)';
+      return reply?.isNotEmpty == true
+          ? reply!
+          : '(No music recommendations available)';
     } catch (e) {
       print('Gemini API error (recommendMusic): $e');
       return 'Sorry, I had trouble generating music recommendations. Could you please try again?';
@@ -119,5 +132,68 @@ class GeminiService {
       print('Gemini API error (generateArticle): $e');
       return 'Sorry, I had trouble generating the article. Could you please try again?';
     }
+  }
+
+  /// Generates multiple article recommendations formatted as structured data
+  Future<List<ArticleRecommendation>> recommendArticles({
+    UserInfo? userInfo,
+    int count = 4,
+    String? personalizationPrompt,
+  }) async {
+    try {
+      final info = userInfo ?? UserInfo.defaultValues();
+      final prompt = GeminiPrompts.buildArticleGenerationPrompt(info);
+      final model = _getModelWithPrompt(prompt);
+
+      final extraContext = (personalizationPrompt?.trim().isNotEmpty ?? false)
+          ? 'User request/context: "${personalizationPrompt!.trim()}". '
+                'Reflect this specifically in each article.'
+          : '';
+
+      final request =
+          '''
+Create $count concise article recommendations tailored to the user. 
+Return valid JSON ONLY (no backticks, no commentary) matching this schema:
+{
+  "articles": [
+    {
+      "title": "short title",
+      "summary": "2 sentence overview",
+      "content": "400-600 word article body with headings",
+      "moodBenefit": "why this helps the user",
+      "tags": ["keyword1", "keyword2"]
+    }
+  ]
+}
+Ensure the JSON parses without modification.
+$extraContext
+''';
+
+      final response = await model.generateContent([Content.text(request)]);
+      final text = response.text?.trim();
+      if (text == null || text.isEmpty) return const [];
+
+      final jsonString = _extractJsonObject(text);
+      if (jsonString == null) return const [];
+
+      final decoded = jsonDecode(jsonString) as Map<String, dynamic>;
+      final articles = decoded['articles'];
+      if (articles is! List) return const [];
+
+      return articles
+          .whereType<Map<String, dynamic>>()
+          .map(ArticleRecommendation.fromMap)
+          .toList();
+    } catch (e) {
+      print('Gemini API error (recommendArticles): $e');
+      return const [];
+    }
+  }
+
+  String? _extractJsonObject(String raw) {
+    final start = raw.indexOf('{');
+    final end = raw.lastIndexOf('}');
+    if (start == -1 || end == -1 || end <= start) return null;
+    return raw.substring(start, end + 1);
   }
 }

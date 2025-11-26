@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import '../data/services/gemini_service.dart';
-import '../data/models/user_info.dart';
+import '../data/models/article_recommendation.dart';
 import '../data/models/music_track.dart';
+import '../data/models/user_info.dart';
+import '../data/services/gemini_service.dart';
 import '../data/services/youtube_audio_service.dart';
+import 'article_screen.dart';
 import 'song_player_screen.dart';
 
 class RecommendScreen extends StatefulWidget {
@@ -11,6 +13,8 @@ class RecommendScreen extends StatefulWidget {
   @override
   State<RecommendScreen> createState() => _RecommendScreenState();
 }
+
+enum _RecommendationCategory { all, music, video, exercise, article }
 
 class _RecommendScreenState extends State<RecommendScreen> {
   // State management
@@ -27,8 +31,16 @@ class _RecommendScreenState extends State<RecommendScreen> {
   String? _exerciseRecommendations;
   String? _exerciseInlineAnswer;
 
-  String? _articleRecommendations;
+  List<ArticleRecommendation> _articleRecommendations = [];
+  bool _isArticleLoading = true;
   String? _articleInlineAnswer;
+  String? _articleError;
+  bool _isPullRefreshing = false;
+  _RecommendationCategory _selectedCategory = _RecommendationCategory.all;
+  final TextEditingController _promptController = TextEditingController();
+  String? _activePrompt;
+  bool _isPromptSubmitting = false;
+  bool _hasTypedPrompt = false;
 
   // User information (emotional state, and other details) - can be updated from other screens or user input
   final UserInfo _userInfo = UserInfo.defaultValues();
@@ -36,7 +48,19 @@ class _RecommendScreenState extends State<RecommendScreen> {
   @override
   void initState() {
     super.initState();
+    _promptController.addListener(() {
+      final hasText = _promptController.text.isNotEmpty;
+      if (hasText != _hasTypedPrompt) {
+        setState(() => _hasTypedPrompt = hasText);
+      }
+    });
     _fetchRecommendations();
+  }
+
+  @override
+  void dispose() {
+    _promptController.dispose();
+    super.dispose();
   }
 
   /// Check if Gemini response is an error message
@@ -51,7 +75,8 @@ class _RecommendScreenState extends State<RecommendScreen> {
   }
 
   /// Main function to fetch all recommendations
-  Future<void> _fetchRecommendations() async {
+  Future<void> _fetchRecommendations({String? prompt}) async {
+    final effectivePrompt = prompt ?? _activePrompt;
     try {
       setState(() {
         _isLoading = true;
@@ -60,7 +85,8 @@ class _RecommendScreenState extends State<RecommendScreen> {
 
       // Fetch all recommendation types in parallel
       await Future.wait([
-        _fetchMusic(),
+        _fetchMusic(customPrompt: effectivePrompt),
+        _fetchArticles(customPrompt: effectivePrompt),
         // _fetchVideo(),
         // _fetchExercise(),
         // _fetchArticle(),
@@ -80,8 +106,58 @@ class _RecommendScreenState extends State<RecommendScreen> {
     }
   }
 
+  Future<void> _handlePullToRefresh() async {
+    if (_isPullRefreshing) return;
+    _isPullRefreshing = true;
+    setState(() {
+      _isLoading = true;
+      _error = null;
+      _musicTracks = [];
+      _musicInlineAnswer = null;
+      _isArticleLoading = true;
+      _articleRecommendations = [];
+      _articleInlineAnswer = null;
+      _articleError = null;
+    });
+    _fetchRecommendations();
+    await Future.delayed(const Duration(milliseconds: 400));
+    _isPullRefreshing = false;
+  }
+
+  void _onCategorySelected(_RecommendationCategory category) {
+    if (_selectedCategory == category) return;
+    setState(() => _selectedCategory = category);
+  }
+
+  Future<void> _submitPrompt() async {
+    final trimmed = _promptController.text.trim();
+    final prompt = trimmed.isEmpty ? null : trimmed;
+
+    if (_isPromptSubmitting) return;
+
+    setState(() {
+      _activePrompt = prompt;
+      _promptController.clear();
+      _hasTypedPrompt = false;
+      _isPromptSubmitting = true;
+      _isLoading = true;
+      _musicTracks = [];
+      _musicInlineAnswer = null;
+      _isArticleLoading = true;
+      _articleRecommendations = [];
+    });
+
+    await _fetchRecommendations(prompt: _activePrompt);
+    setState(() => _isPromptSubmitting = false);
+  }
+
+  bool _shouldShowCategory(_RecommendationCategory category) {
+    return _selectedCategory == _RecommendationCategory.all ||
+        _selectedCategory == category;
+  }
+
   /// Fetch music recommendations using Gemini service with retry logic
-  Future<void> _fetchMusic({int retryCount = 0}) async {
+  Future<void> _fetchMusic({int retryCount = 0, String? customPrompt}) async {
     const maxRetries = 3;
     const retryDelays = [1, 2, 4]; // seconds
 
@@ -100,7 +176,9 @@ class _RecommendScreenState extends State<RecommendScreen> {
       );
       final geminiResult = await GeminiService.instance.recommendMusic(
         userInfo: _userInfo,
-        additionalContext: 'Based on my current emotional state and needs',
+        additionalContext: (customPrompt?.isNotEmpty ?? false)
+            ? customPrompt!
+            : 'Based on my current emotional state and needs',
       );
 
       if (!mounted) return;
@@ -222,29 +300,37 @@ class _RecommendScreenState extends State<RecommendScreen> {
     });
   }
 
-  /// Fetch article recommendations using Gemini service (placeholder for now)
-  Future<void> _fetchArticle() async {
+  /// Fetch article recommendations using Gemini service
+  Future<void> _fetchArticles({String? customPrompt}) async {
+    setState(() {
+      _isArticleLoading = true;
+      _articleError = null;
+    });
+
     try {
-      final result = await GeminiService.instance.generateArticle(
+      final articles = await GeminiService.instance.recommendArticles(
         userInfo: _userInfo,
-        topic: 'Helpful content for my current emotional state',
+        count: 4,
+        personalizationPrompt: customPrompt,
       );
 
       if (!mounted) return;
       setState(() {
-        _articleRecommendations = result;
-        // Extract a preview/summary for inline display (first 100 chars)
-        _articleInlineAnswer = result.length > 100
-            ? '${result.substring(0, 100)}...'
-            : result;
+        _articleRecommendations = articles;
+        _articleInlineAnswer = articles.isNotEmpty
+            ? 'Found ${articles.length} helpful reads'
+            : 'No recommendations yet';
+        _isArticleLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _articleRecommendations = null;
-        _articleInlineAnswer = 'Error loading article';
+        _articleRecommendations = [];
+        _articleInlineAnswer = 'Unable to load articles';
+        _articleError = 'Error loading articles. Tap to retry.';
+        _isArticleLoading = false;
       });
-      print('Error fetching article: $e');
+      print('Error fetching articles: $e');
     }
   }
 
@@ -253,6 +339,12 @@ class _RecommendScreenState extends State<RecommendScreen> {
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => SongPlayerScreen(track: track)));
+  }
+
+  void _openArticle(ArticleRecommendation article) {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => ArticleScreen(article: article)));
   }
 
   List<MusicTrack> _parseGeminiTracks(String response) {
@@ -308,152 +400,297 @@ class _RecommendScreenState extends State<RecommendScreen> {
     return Scaffold(
       backgroundColor: navy,
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: pagePadding.copyWith(top: 12.0, bottom: 8.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: const [
-                    Text(
-                      'Recommend today',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      'Something here but i don''t know',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF9AA5C4)),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Category row
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 88,
-                child: ListView(
-                  padding: pagePadding,
-                  scrollDirection: Axis.horizontal,
-                  children: const [
-                    _CategoryPill(
-                      label: 'All',
-                      icon: Icons.spa_outlined,
-                      selected: true,
-                    ),
-                    _CategoryPill(
-                      label: 'Music',
-                      icon: Icons.music_note_outlined,
-                    ),
-                    _CategoryPill(
-                      label: 'Video',
-                      icon: Icons.play_circle_outline,
-                    ),
-                    _CategoryPill(
-                      label: 'Exercise',
-                      icon: Icons.self_improvement_outlined,
-                    ),
-                    _CategoryPill(
-                      label: 'Article',
-                      icon: Icons.article_outlined,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Best for you card
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: pagePadding.copyWith(top: 12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Best for you',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      height: 180,
-                      decoration: BoxDecoration(
-                        color: lightNavy,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Align(
-                        alignment: Alignment.bottomRight,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: _PlayGlyph(color: accent),
+        child: RefreshIndicator(
+          color: Colors.white,
+          backgroundColor: navy,
+          onRefresh: _handlePullToRefresh,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: pagePadding.copyWith(top: 12.0, bottom: 8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: const [
+                      Text(
+                        'Recommend today',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ),
-                  ],
+                      SizedBox(height: 6),
+                      Text(
+                        'Something here but i don'
+                        't know',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF9AA5C4),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            // Sections: Music, Video, Exercise
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: pagePadding.copyWith(top: 16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _SectionRow(
-                      title: 'Music',
-                      trailing: _isLoading
-                          ? 'Loading…'
-                          : (_error ??
-                                (_musicInlineAnswer ?? 'No recommendations')),
-                      onTap: _error != null ? () => _fetchMusic() : null,
-                    ),
-                    const SizedBox(height: 12),
-                    _MusicGrid(
-                      isLoading: _isLoading,
-                      tracks: _musicTracks,
-                      onTrackTap: _openSongPlayer,
-                      error: _error,
-                      onRetry: _error != null ? () => _fetchMusic() : null,
-                    ),
-                    const SizedBox(height: 20),
-                    _SectionRow(
-                      title: 'Video',
-                      trailing: _isLoading
-                          ? 'Loading…'
-                          : (_videoInlineAnswer ?? 'No recommendations'),
-                    ),
-                    const SizedBox(height: 12),
-                    const _CardRow(),
-                    const SizedBox(height: 20),
-                    _SectionRow(
-                      title: 'Exercise',
-                      trailing: _isLoading
-                          ? 'Loading…'
-                          : (_exerciseInlineAnswer ?? 'Coming soon'),
-                    ),
-                    const SizedBox(height: 12),
-                    const _CardRow(),
-                    const SizedBox(height: 20),
-                    _SectionRow(
-                      title: 'Article',
-                      trailing: _isLoading
-                          ? 'Loading…'
-                          : (_articleInlineAnswer ?? 'No recommendations'),
-                    ),
-                    const SizedBox(height: 12),
-                    const _CardRow(),
-                    const SizedBox(height: 20),
-                  ],
+              // Category row
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 88,
+                  child: ListView(
+                    padding: pagePadding,
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      _CategoryPill(
+                        label: 'All',
+                        icon: Icons.spa_outlined,
+                        selected:
+                            _selectedCategory == _RecommendationCategory.all,
+                        onTap: () =>
+                            _onCategorySelected(_RecommendationCategory.all),
+                      ),
+                      _CategoryPill(
+                        label: 'Music',
+                        icon: Icons.music_note_outlined,
+                        selected:
+                            _selectedCategory == _RecommendationCategory.music,
+                        onTap: () =>
+                            _onCategorySelected(_RecommendationCategory.music),
+                      ),
+                      _CategoryPill(
+                        label: 'Video',
+                        icon: Icons.play_circle_outline,
+                        selected:
+                            _selectedCategory == _RecommendationCategory.video,
+                        onTap: () =>
+                            _onCategorySelected(_RecommendationCategory.video),
+                      ),
+                      _CategoryPill(
+                        label: 'Exercise',
+                        icon: Icons.self_improvement_outlined,
+                        selected:
+                            _selectedCategory ==
+                            _RecommendationCategory.exercise,
+                        onTap: () => _onCategorySelected(
+                          _RecommendationCategory.exercise,
+                        ),
+                      ),
+                      _CategoryPill(
+                        label: 'Article',
+                        icon: Icons.article_outlined,
+                        selected:
+                            _selectedCategory ==
+                            _RecommendationCategory.article,
+                        onTap: () => _onCategorySelected(
+                          _RecommendationCategory.article,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: pagePadding.copyWith(bottom: 12),
+                  child: TextField(
+                    controller: _promptController,
+                    textInputAction: TextInputAction.search,
+                    decoration: InputDecoration(
+                      hintText: _hasTypedPrompt
+                          ? ''
+                          : 'Ask for a different song/video/article…',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_activePrompt != null)
+                            IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _promptController.clear();
+                                if (_activePrompt != null) {
+                                  setState(() => _activePrompt = null);
+                                  _fetchRecommendations(prompt: null);
+                                }
+                              },
+                            ),
+                          if (_hasTypedPrompt)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ElevatedButton(
+                                onPressed: _isPromptSubmitting
+                                    ? null
+                                    : _submitPrompt,
+                                style: ElevatedButton.styleFrom(
+                                  shape: const CircleBorder(),
+                                  backgroundColor: _isPromptSubmitting
+                                      ? Colors.white24
+                                      : const Color(0xFFB7B9FF),
+                                  foregroundColor: const Color(0xFF081944),
+                                  padding: const EdgeInsets.all(10),
+                                ),
+                                child: _isPromptSubmitting
+                                    ? const SizedBox(
+                                        height: 14,
+                                        width: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Color(0xFF081944),
+                                        ),
+                                      )
+                                    : const Icon(Icons.send_rounded, size: 18),
+                              ),
+                            ),
+                        ],
+                      ),
+                      filled: true,
+                      fillColor: lightNavy,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Best for you card
+              if (_selectedCategory == _RecommendationCategory.all)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: pagePadding.copyWith(top: 12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Best for you',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          height: 180,
+                          decoration: BoxDecoration(
+                            color: lightNavy,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Align(
+                            alignment: Alignment.bottomRight,
+                            child: Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: _PlayGlyph(color: accent),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // Sections: Music, Video, Exercise
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: pagePadding.copyWith(top: 16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_shouldShowCategory(
+                        _RecommendationCategory.music,
+                      )) ...[
+                        _SectionRow(
+                          title: 'Music',
+                          trailing: _isLoading
+                              ? 'Loading…'
+                              : (_error ??
+                                    (_musicInlineAnswer ??
+                                        'No recommendations')),
+                          onTap: _error != null ? () => _fetchMusic() : null,
+                        ),
+                        const SizedBox(height: 12),
+                        _MusicGrid(
+                          isLoading: _isLoading,
+                          tracks: _musicTracks,
+                          onTrackTap: _openSongPlayer,
+                          error: _error,
+                          onRetry: _error != null ? () => _fetchMusic() : null,
+                          layout:
+                              _selectedCategory == _RecommendationCategory.music
+                              ? MusicLayout.grid
+                              : MusicLayout.carousel,
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                      if (_shouldShowCategory(
+                        _RecommendationCategory.video,
+                      )) ...[
+                        _SectionRow(
+                          title: 'Video',
+                          trailing: _isLoading
+                              ? 'Loading…'
+                              : (_videoInlineAnswer ?? 'No recommendations'),
+                        ),
+                        const SizedBox(height: 12),
+                        _selectedCategory == _RecommendationCategory.video
+                            ? const _CardGrid()
+                            : const _CardRow(),
+                        const SizedBox(height: 20),
+                      ],
+                      if (_shouldShowCategory(
+                        _RecommendationCategory.exercise,
+                      )) ...[
+                        _SectionRow(
+                          title: 'Exercise',
+                          trailing: _isLoading
+                              ? 'Loading…'
+                              : (_exerciseInlineAnswer ?? 'Coming soon'),
+                        ),
+                        const SizedBox(height: 12),
+                        _selectedCategory == _RecommendationCategory.exercise
+                            ? const _CardGrid()
+                            : const _CardRow(),
+                        const SizedBox(height: 20),
+                      ],
+                      if (_shouldShowCategory(
+                        _RecommendationCategory.article,
+                      )) ...[
+                        _SectionRow(
+                          title: 'Article',
+                          trailing: _isArticleLoading
+                              ? 'Loading…'
+                              : (_articleError ??
+                                    (_articleInlineAnswer ??
+                                        'No recommendations')),
+                          onTap: _articleError != null ? _fetchArticles : null,
+                        ),
+                        const SizedBox(height: 12),
+                        _selectedCategory == _RecommendationCategory.article
+                            ? _ArticleGridExpanded(
+                                isLoading: _isArticleLoading,
+                                articles: _articleRecommendations,
+                                error: _articleError,
+                                onRetry: _articleError != null
+                                    ? _fetchArticles
+                                    : null,
+                                onArticleTap: _openArticle,
+                              )
+                            : _ArticleCarousel(
+                                isLoading: _isArticleLoading,
+                                articles: _articleRecommendations,
+                                error: _articleError,
+                                onRetry: _articleError != null
+                                    ? _fetchArticles
+                                    : null,
+                                onArticleTap: _openArticle,
+                              ),
+                        const SizedBox(height: 20),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -464,39 +701,49 @@ class _CategoryPill extends StatelessWidget {
   final String label;
   final IconData icon;
   final bool selected;
+  final VoidCallback? onTap;
   const _CategoryPill({
     required this.label,
     required this.icon,
     this.selected = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 12.0),
-      child: Column(
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: selected
-                  ? const Color(0xFFB7B9FF).withOpacity(0.25)
-                  : const Color(0xFF2E3D6B),
-              borderRadius: BorderRadius.circular(14),
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 12.0),
+        child: Column(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: selected
+                    ? const Color(0xFFB7B9FF)
+                    : const Color(0xFF2E3D6B),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                icon,
+                color: selected
+                    ? const Color(0xFF081944)
+                    : const Color(0xFFB7B9FF),
+              ),
             ),
-            child: Icon(icon, color: const Color(0xFFB7B9FF)),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              color: selected ? Colors.white : const Color(0xFFB4BEDA),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected ? Colors.white : const Color(0xFFB4BEDA),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -559,12 +806,15 @@ class _SectionRow extends StatelessWidget {
 }
 
 /// Handle showing the row of the music grid (Parent (1))
+enum MusicLayout { carousel, grid }
+
 class _MusicGrid extends StatelessWidget {
   final bool isLoading;
   final List<MusicTrack> tracks;
   final void Function(MusicTrack) onTrackTap;
   final String? error;
   final VoidCallback? onRetry;
+  final MusicLayout layout;
 
   const _MusicGrid({
     required this.isLoading,
@@ -572,6 +822,7 @@ class _MusicGrid extends StatelessWidget {
     required this.onTrackTap,
     this.error,
     this.onRetry,
+    this.layout = MusicLayout.carousel,
   });
 
   @override
@@ -614,24 +865,60 @@ class _MusicGrid extends StatelessWidget {
     }
 
     if (tracks.isEmpty) {
-      return SizedBox(
-        height: 195,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: 4,
-          padding: EdgeInsets.zero,
-          separatorBuilder: (_, __) => const SizedBox(width: 16),
-          itemBuilder: (context, index) {
-            return Container(
-              width: 150,
-              decoration: BoxDecoration(
-                color: const Color(0xFF0D2357),
-                borderRadius: BorderRadius.circular(14),
+      return layout == MusicLayout.grid
+          ? GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.85,
+              children: List.generate(
+                4,
+                (index) => Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0D2357),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
               ),
-              child: const Center(child: _PlayGlyph()),
+            )
+          : SizedBox(
+              height: 195,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: 4,
+                padding: EdgeInsets.zero,
+                separatorBuilder: (_, __) => const SizedBox(width: 16),
+                itemBuilder: (context, index) {
+                  return Container(
+                    width: 150,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0D2357),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Center(child: _PlayGlyph()),
+                  );
+                },
+              ),
             );
-          },
+    }
+
+    if (layout == MusicLayout.grid) {
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 0.85,
         ),
+        itemCount: tracks.length,
+        itemBuilder: (context, index) {
+          final track = tracks[index];
+          return _MusicTrackCard(track: track, onTap: () => onTrackTap(track));
+        },
       );
     }
 
@@ -655,6 +942,266 @@ class _MusicGrid extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ArticleCarousel extends StatelessWidget {
+  final bool isLoading;
+  final List<ArticleRecommendation> articles;
+  final void Function(ArticleRecommendation) onArticleTap;
+  final String? error;
+  final VoidCallback? onRetry;
+
+  const _ArticleCarousel({
+    required this.isLoading,
+    required this.articles,
+    required this.onArticleTap,
+    this.error,
+    this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const carouselHeight = 180.0;
+
+    if (isLoading && articles.isEmpty) {
+      return const SizedBox(
+        height: carouselHeight,
+        child: Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
+
+    if (error != null && articles.isEmpty) {
+      return SizedBox(
+        height: carouselHeight,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                error!,
+                style: const TextStyle(color: Color(0xFF9AA5C4), fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+              if (onRetry != null) ...[
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('Retry'),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    final items = articles.isEmpty ? List.filled(4, null) : articles;
+
+    return SizedBox(
+      height: carouselHeight,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: items.length,
+        padding: EdgeInsets.zero,
+        separatorBuilder: (_, __) => const SizedBox(width: 16),
+        itemBuilder: (context, index) {
+          final article = items[index];
+          return SizedBox(
+            width: 220,
+            child: article == null
+                ? Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0D2357),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  )
+                : _ArticleCard(
+                    article: article,
+                    onTap: () => onArticleTap(article),
+                  ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ArticleGridExpanded extends StatelessWidget {
+  final bool isLoading;
+  final List<ArticleRecommendation> articles;
+  final void Function(ArticleRecommendation) onArticleTap;
+  final String? error;
+  final VoidCallback? onRetry;
+
+  const _ArticleGridExpanded({
+    required this.isLoading,
+    required this.articles,
+    required this.onArticleTap,
+    this.error,
+    this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading && articles.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 48),
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
+
+    if (error != null && articles.isEmpty) {
+      return Column(
+        children: [
+          Text(
+            error!,
+            style: const TextStyle(color: Color(0xFF9AA5C4), fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+          if (onRetry != null) ...[
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('Retry'),
+            ),
+          ],
+        ],
+      );
+    }
+
+    final items = articles.isEmpty
+        ? List<ArticleRecommendation?>.filled(4, null)
+        : articles;
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 0.95,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final article = items[index];
+        if (article == null) {
+          return Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF0D2357),
+              borderRadius: BorderRadius.circular(18),
+            ),
+          );
+        }
+        return _ArticleCard(
+          article: article,
+          onTap: () => onArticleTap(article),
+        );
+      },
+    );
+  }
+}
+
+class _ArticleCard extends StatelessWidget {
+  const _ArticleCard({required this.article, required this.onTap});
+
+  final ArticleRecommendation article;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Ink(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1B2D58), Color(0xFF0B1A3A)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _formatArticlePreview(article.title),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _formatArticlePreview(article.summary),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFFB4BEDA),
+                  fontSize: 12,
+                  height: 1.3,
+                ),
+              ),
+              const Spacer(),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children:
+                    (article.tags.isNotEmpty
+                            ? article.tags.take(2)
+                            : const ['Mindfulness'])
+                        .map(
+                          (tag) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(
+                                0xFFB7B9FF,
+                              ).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              tag,
+                              style: const TextStyle(
+                                color: Color(0xFFB7B9FF),
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _formatArticlePreview(String text) {
+  var result = text;
+  result = result.replaceAll(RegExp(r'#{1,6}\s*'), '');
+  result = result.replaceAll('**', '');
+  result = result.replaceAll('*', '');
+  result = result.replaceAll('`', '');
+  result = result.replaceAllMapped(
+    RegExp(r'\[(.*?)\]\((.*?)\)'),
+    (match) => match.group(1) ?? '',
+  );
+  result = result.replaceAll(RegExp(r'(\r?\n)+'), ' ');
+  return result.trim();
 }
 
 /// Specific music song details of GRID card (Child (1a))
@@ -799,6 +1346,32 @@ class _Placeholder extends StatelessWidget {
             fontSize: 32,
             fontWeight: FontWeight.bold,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CardGrid extends StatelessWidget {
+  const _CardGrid();
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1,
+      children: List.generate(
+        4,
+        (index) => Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D2357),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Center(child: _PlayGlyph()),
         ),
       ),
     );
