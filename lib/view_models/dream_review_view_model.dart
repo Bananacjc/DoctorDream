@@ -18,9 +18,9 @@ class DreamReviewViewModel extends ChangeNotifier {
   bool _isLoading = false;
 
   List<DreamEntry> get dreams => _filteredDreams;
-  bool get isLoading => _isLoading;
   SortOrder get currentSort => _currentSort;
   bool get hasNoDreams => _allDreams.isEmpty;
+  bool get isLoading => _isLoading;
 
   Future<void> loadDreams() async {
     _isLoading = true;
