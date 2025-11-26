@@ -48,6 +48,7 @@ dependencies:
   audio_session: ^0.1.21
   sqflite: ^2.3.3+1
   path: ^1.9.0
+  flutter_markdown: ^0.7.7+1
 
 dev_dependencies:
   flutter_test:

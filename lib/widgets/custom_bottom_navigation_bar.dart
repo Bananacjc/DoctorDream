@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../screens/dream_diagnosis_screen.dart';
 import '../screens/dream_review_screen.dart';
-import '../screens/diagnosis_screen.dart';
 import '../screens/recommend_screen.dart';
 import '../screens/chat_screen.dart';
 import '../screens/profile_screen.dart';
@@ -19,7 +19,7 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
 
   final List<Widget> _pages = const <Widget>[
     DreamReviewScreen(),
-    DiagnosisScreen(),
+    DreamDiagnosisScreen(),
     RecommendScreen(),
     ChatScreen(),
     ProfileScreen(),
