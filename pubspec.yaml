@@ -41,10 +41,10 @@ dependencies:
   url_launcher: ^6.3.0 # spotify link launcher
   google_generative_ai: ^0.4.7
   http: ^1.2.0
-  youtube_explode_dart: ^2.3.7
+  youtube_explode_dart: ^3.0.5
   audioplayers: ^6.1.0
   intl: ^0.20.2
-  just_audio: ^0.9.40
+  just_audio: ^0.10.5
   audio_session: ^0.1.21
   sqflite: ^2.3.3+1
   path: ^1.9.0

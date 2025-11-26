@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -38,28 +40,64 @@ class _SongPlayerScreenState extends State<SongPlayerScreen> {
     _loadAndPlay();
   }
 
-Future<void> _loadAndPlay() async {
+  Future<void> _loadAndPlay() async {
     if (!mounted) return;
     setState(() {
       _isLoading = true;
       _error = null;
     });
 
-    // Build query from track title and artist
-    final query = "${widget.track.title} ${widget.track.artist} audio";
+    // Build query directly from track details
+    final query = widget.track.buildSearchQuery();
+
+    print('\n========== SONG PLAYER SCREEN DEBUG ==========');
+    print('Track: ${widget.track.title}');
+    print('Artist: ${widget.track.artist}');
+    print('Search Query: "$query"');
+    print('=============================================\n');
 
     try {
-      // 1. Get the URL (Takes ~1 second)
+      // 1. Get the URL from YouTube
+      print('Fetching YouTube audio stream URL...');
       final url = await _youtubeAudioService.fetchAudioStreamUrl(query);
-      
-      // 2. Stream it immediately
+      print('✓ Successfully got URL from YouTube service');
+
+      if (!mounted) return;
+
+      // 2. Load and play the stream
+      print('Starting music player...');
       await _musicPlayer.playUrl(url);
-      
-    } catch (e) {
+
+      if (!mounted) return;
+      print('✓ Song player loaded successfully!');
+      print('=============================================\n');
+    } catch (e, stackTrace) {
+      print('\n========== SONG PLAYER ERROR ==========');
+      print('✗ Failed to load/play song');
+      print('Track: ${widget.track.title} by ${widget.track.artist}');
+      print('Error: $e');
+      print('Stack trace:');
+      print(stackTrace);
+      print('=======================================\n');
+
       if (!mounted) return;
       setState(() {
-        _error = 'Could not play this song. (Region lock or Network)';
-        print("Playback error: $e");
+        // Provide specific error message
+        String errorMsg = 'Could not play this song. ';
+
+        if (e.toString().contains('No video results found')) {
+          errorMsg += 'Song not found on YouTube.';
+        } else if (e.toString().contains('No audio streams found')) {
+          errorMsg += 'Audio not available for this video.';
+        } else if (e.toString().contains('403')) {
+          errorMsg += 'YouTube blocked the stream. Try another song.';
+        } else if (e.toString().contains('Failed to start playback')) {
+          errorMsg += 'Playback error. Try another song.';
+        } else {
+          errorMsg += 'Try another song.';
+        }
+
+        _error = errorMsg;
       });
     } finally {
       if (mounted) {
@@ -69,7 +107,7 @@ Future<void> _loadAndPlay() async {
       }
     }
   }
-  
+
   // Also update your listener, just_audio uses different state names
   void _listenToPlayer() {
     _positionSub = _musicPlayer.positionStream.listen((value) {
@@ -107,6 +145,7 @@ Future<void> _loadAndPlay() async {
     _durationSub?.cancel();
     _stateSub?.cancel();
     _musicPlayer.stop();
+    _musicPlayer.dispose();
     super.dispose();
   }
 

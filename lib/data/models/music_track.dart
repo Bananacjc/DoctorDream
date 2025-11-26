@@ -1,9 +1,4 @@
 class MusicTrack {
-  final String title;
-  final String artist;
-  final String? note;
-  final String? thumbnailUrl;
-
   const MusicTrack({
     required this.title,
     required this.artist,
@@ -11,14 +6,47 @@ class MusicTrack {
     this.thumbnailUrl,
   });
 
-  String buildSearchQuery() => '$title $artist audio';
+  final String title;
+  final String artist;
+  final String? note;
+  final String? thumbnailUrl;
 
-  MusicTrack copyWith({String? thumbnailUrl}) {
+  MusicTrack copyWith({
+    String? title,
+    String? artist,
+    String? note,
+    String? thumbnailUrl,
+  }) {
     return MusicTrack(
-      title: title,
-      artist: artist,
-      note: note,
+      title: title ?? this.title,
+      artist: artist ?? this.artist,
+      note: note ?? this.note,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'title': title,
+      'artist': artist,
+      if (note != null) 'note': note,
+      if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
+    };
+  }
+
+  factory MusicTrack.fromMap(Map<String, dynamic> map) {
+    return MusicTrack(
+      title: map['title'] as String? ?? '',
+      artist: map['artist'] as String? ?? '',
+      note: map['note'] as String?,
+      thumbnailUrl: map['thumbnailUrl'] as String?,
+    );
+  }
+
+  /// Builds a consistent search query for YouTube lookups.
+  String buildSearchQuery() {
+    final cleanedTitle = title.trim();
+    final cleanedArtist = artist.trim();
+    return '$cleanedTitle $cleanedArtist audio';
   }
 }
