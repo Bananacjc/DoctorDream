@@ -1,6 +1,10 @@
+import 'dart:developer';
+
+import 'package:doctor_dream/data/models/dream_diagnosis.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../models/dream_analysis.dart';
 import '../models/dream_entry.dart';
 import '../models/safety_plan.dart';
 import '../models/support_contact.dart';
@@ -11,7 +15,7 @@ class LocalDatabase {
   LocalDatabase._();
 
   static const _dbName = StringConstant.dbName;
-  static const _dbVersion = 2;
+  static const _dbVersion = 3;
 
   static final LocalDatabase instance = LocalDatabase._();
 
@@ -80,6 +84,37 @@ class LocalDatabase {
         FOREIGN KEY (plan_id) REFERENCES safety_plans(id) ON DELETE CASCADE
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS dream_entries (
+        dream_id TEXT PRIMARY KEY,
+        dream_title TEXT NOT NULL,
+        dream_content TEXT,
+        created_at TEXT,
+        updated_at TEXT,
+        status INTEGER,
+        is_favourite INTEGER DEFAULT 0
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS dream_analysis (
+        analysis_id TEXT PRIMARY KEY,
+        dream_id TEXT NOT NULL,
+        analysis_content TEXT,
+        created_at TEXT,
+        updated_at TEXT,
+        FOREIGN KEY (dream_id) REFERENCES dream_entries(dream_id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS dream_diagnosis (
+        diagnosis_id TEXT PRIMARY KEY,
+        diagnosis_content TEXT,
+        created_at TEXT
+      )
+    ''');
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -143,6 +178,25 @@ class LocalDatabase {
         updated_at TEXT,
         status INTEGER,
         is_favourite INTEGER DEFAULT 0
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS dream_analysis (
+        analysis_id TEXT PRIMARY KEY,
+        dream_id TEXT NOT NULL,
+        analysis_content TEXT,
+        created_at TEXT,
+        updated_at TEXT,
+        FOREIGN KEY (dream_id) REFERENCES dream_entries(dream_id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS dream_diagnosis (
+        diagnosis_id TEXT PRIMARY KEY,
+        diagnosis_content TEXT,
+        created_at TEXT
       )
     ''');
   }
@@ -235,8 +289,9 @@ class LocalDatabase {
 
     return planRows.map((row) {
       final planId = row['id'] as int?;
-      final steps =
-          planId != null ? List<String>.from(stepsByPlan[planId] ?? []) : <String>[];
+      final steps = planId != null
+          ? List<String>.from(stepsByPlan[planId] ?? [])
+          : <String>[];
       return SafetyPlan.fromMap(row, steps);
     }).toList();
   }
@@ -257,11 +312,7 @@ class LocalDatabase {
         final step = timestamped.steps[index];
         await txn.insert(
           StringConstant.safetyPlanStepsTable,
-          {
-            'plan_id': planId,
-            'step_order': index,
-            'description': step,
-          },
+          {'plan_id': planId, 'step_order': index, 'description': step},
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
@@ -287,6 +338,7 @@ class LocalDatabase {
   // Dream entries -----------------------------------------------------------
   Future<void> upsertDreamEntry(DreamEntry entry) async {
     final db = await database;
+
     await db.insert(
       StringConstant.dreamEntryTable,
       entry.toMap(),
@@ -330,9 +382,77 @@ class LocalDatabase {
     final db = await database;
     await db.update(
       StringConstant.dreamEntryTable,
-        {'is_favourite': isFavourite ? 1 : 0},
+      {'is_favourite': isFavourite ? 1 : 0},
       where: 'dream_id = ?',
       whereArgs: [id],
     );
+  }
+
+  // Analysis -----------------------------------------------------------
+  Future<void> saveDreamAnalysis(
+    String dreamID,
+    String content,
+    String analysisID,
+  ) async {
+    final db = await database;
+    final now = DateTime.now();
+
+    final analysis = DreamAnalysis(
+      analysisID: analysisID,
+      dreamID: dreamID,
+      analysisContent: content,
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    await db.insert(
+      StringConstant.dreamAnalysisTable,
+      analysis.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<DreamAnalysis?> fetchDreamAnalysis(String dreamID) async {
+    final db = await database;
+
+    await _ensureTablesExist(db);
+
+    final result = await db.query(
+      StringConstant.dreamAnalysisTable,
+      where: 'dream_id = ?',
+      whereArgs: [dreamID],
+    );
+
+    if (result.isNotEmpty) {
+      return DreamAnalysis.fromMap(result.first);
+    }
+    return null;
+  }
+
+  // Diagnosis -----------------------------------------------------------
+  Future<void> saveDreamDiagnosis(String diagnosisID, String content) async {
+    final db = await database;
+    final now = DateTime.now();
+
+    final diagnosis = DreamDiagnosis(
+      diagnosisID: diagnosisID,
+      diagnosisContent: content,
+      createdAt: now,
+    );
+
+    await db.insert(
+      StringConstant.dreamDiagnosisTable,
+      diagnosis.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<DreamDiagnosis>> fetchDreamDiagnosis() async {
+    final db = await database;
+    final result = await db.query(
+      StringConstant.dreamDiagnosisTable,
+      orderBy: 'created_at DESC',
+    );
+    return result.map((map) => DreamDiagnosis.fromMap(map)).toList();
   }
 }

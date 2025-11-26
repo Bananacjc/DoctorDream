@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../models/article_recommendation.dart';
+import '../models/dream_entry.dart';
 import '../models/user_info.dart';
 import 'gemini_prompts.dart';
 
@@ -29,6 +30,73 @@ class GeminiService {
       apiKey: _apiKey,
       systemInstruction: Content.system(systemPrompt),
     );
+  }
+
+  // Dream analysis prompt
+  Future<String> analyzeDream(
+    String title,
+    String content, {
+    UserInfo? userInfo,
+  }) async {
+    try {
+      final info = userInfo ?? UserInfo.defaultValues();
+
+      final systemPrompt = GeminiPrompts.buildDreamAnalysisPrompt();
+
+      final model = _getModelWithPrompt(systemPrompt);
+
+      final userMessage = "Dream Title: $title\n\nDream Content: $content";
+
+      final response = await model.generateContent([Content.text(userMessage)]);
+
+      final reply = response.text?.trim();
+
+      return reply?.isNotEmpty == true
+          ? reply!
+          : "Could not analyze the dream "
+                "at "
+                "this time. Please try again later.";
+    } catch (e) {
+      print("GEMINI API ERROR (analyzeDream): $e");
+      return "Sorry, I had trouble analyzing the dream. Please try again "
+          "later.";
+    }
+  }
+
+  // Dream Diagnosis Prompt
+  Future<String> diagnoseDream(
+    List<DreamEntry> dreams, {
+    UserInfo? userInfo,
+  }) async {
+    try {
+      final info = userInfo ?? UserInfo.defaultValues();
+
+      final systemPrompt = GeminiPrompts.buildDreamDiagnosisPrompt();
+
+      final model = _getModelWithPrompt(systemPrompt);
+
+      final dreamList = StringBuffer();
+      for (int i = 0; i < dreams.length; i++) {
+        dreamList.writeln('Dream ${i + 1}');
+        dreamList.writeln('Title: ${dreams[i].dreamTitle}');
+        dreamList.writeln('Content: ${dreams[i].dreamContent}');
+      }
+
+      final response = await model.generateContent([
+        Content.text(dreamList.toString()),
+      ]);
+
+      final reply = response.text?.trim();
+
+      return reply?.isNotEmpty == true
+          ? reply!
+          : "Could not diagnose the "
+                "dreams at this time. Please try again later.";
+    } catch (e) {
+      print("GEMINI API ERROR (diagnoseDream): $e");
+      return "Sorry, I had trouble diagnosing the dream. Please try again "
+          "later.";
+    }
   }
 
   /// Starts or resets chat session with user info
