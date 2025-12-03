@@ -1,6 +1,7 @@
 // lib/services/gemini_service.dart
 
 import 'dart:convert';
+import 'dart:developer';
 
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../models/article_recommendation.dart';
@@ -67,23 +68,37 @@ class GeminiService {
   Future<String> diagnoseDream(
     List<DreamEntry> dreams, {
     UserInfo? userInfo,
+    String? previousDiagnosis,
   }) async {
     try {
       final info = userInfo ?? UserInfo.defaultValues();
 
-      final systemPrompt = GeminiPrompts.buildDreamDiagnosisPrompt();
+      final isComparative = previousDiagnosis?.trim().isNotEmpty == true;
+
+      final systemPrompt = isComparative
+          ? GeminiPrompts.buildComparativeDiagnosisPrompt()
+          : GeminiPrompts.buildDreamDiagnosisPrompt();
 
       final model = _getModelWithPrompt(systemPrompt);
 
-      final dreamList = StringBuffer();
-      for (int i = 0; i < dreams.length; i++) {
-        dreamList.writeln('Dream ${i + 1}');
-        dreamList.writeln('Title: ${dreams[i].dreamTitle}');
-        dreamList.writeln('Content: ${dreams[i].dreamContent}');
+      final contentBuffer = StringBuffer();
+
+      if (isComparative) {
+        contentBuffer.writeln('--- Previous Diagnosis ---');
+        contentBuffer.writeln(previousDiagnosis!);
+        contentBuffer.writeln('--- New Diagnosis ---');
       }
 
+      for (int i = 0; i < dreams.length; i++) {
+        contentBuffer.writeln('Dream ${i + 1}');
+        contentBuffer.writeln('Title: ${dreams[i].dreamTitle}');
+        contentBuffer.writeln('Content: ${dreams[i].dreamContent}');
+      }
+
+      log("DIAGNOSIS CONTENT: ${contentBuffer.toString()}");
+
       final response = await model.generateContent([
-        Content.text(dreamList.toString()),
+        Content.text(contentBuffer.toString()),
       ]);
 
       final reply = response.text?.trim();
@@ -263,5 +278,61 @@ $extraContext
     final end = raw.lastIndexOf('}');
     if (start == -1 || end == -1 || end <= start) return null;
     return raw.substring(start, end + 1);
+  }
+
+  Future<String> startDreamAnalysisChat({
+    required UserInfo userInfo,
+    required String title,
+    required String analysis,
+  }) async {
+    try {
+      final systemPrompt = GeminiPrompts.buildDreamAnalysisChatPrompt(
+        userInfo,
+        title,
+        analysis,
+      );
+
+      final model = _getModelWithPrompt(systemPrompt);
+      final analysisChatSession = model.startChat();
+
+      final response = await analysisChatSession.sendMessage(
+        Content.text("Start dream analysis discussion."),
+      );
+
+      _chatSession = analysisChatSession;
+      _currentChatUserInfo = userInfo;
+
+      final reply = response.text?.trim();
+      return reply?.isNotEmpty == true ? reply! : '(No response from Gemini)';
+    } catch (e) {
+      return "Sorry, I had trouble starting this topic. Please try again.";
+    }
+  }
+
+  Future<String> startDreamDiagnosisChat({
+    required UserInfo userInfo,
+    required String diagnosis,
+  }) async {
+    try {
+      final systemPrompt = GeminiPrompts.buildDreamDiagnosisChatPrompt(
+        userInfo,
+        diagnosis,
+      );
+
+      final model = _getModelWithPrompt(systemPrompt);
+      final diagnosisChatSession = model.startChat();
+
+      final response = await diagnosisChatSession.sendMessage(
+        Content.text("Start dream diagnosis discussion"),
+      );
+
+      _chatSession = diagnosisChatSession;
+      _currentChatUserInfo = userInfo;
+
+      final reply = response.text?.trim();
+      return reply?.isNotEmpty == true ? reply! : '(No response from Gemini)';
+    } catch (e) {
+      return "Sorry, I had trouble starting this topic. Please try again.";
+    }
   }
 }

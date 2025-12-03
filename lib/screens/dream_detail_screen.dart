@@ -8,7 +8,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../constants/color_constant.dart';
 import '../data/models/dream_entry.dart';
+import '../data/models/user_info.dart';
 import '../widgets/custom_button.dart';
+import 'chat_screen.dart';
 import 'dream_edit_screen.dart';
 
 class DreamDetailScreen extends StatefulWidget {
@@ -93,6 +95,35 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
     return result ?? false;
   }
 
+  Future<void> _startChatDiscussion(
+    BuildContext modalContext,
+    String analysis,
+  ) async {
+    Navigator.pop(modalContext);
+
+    final dummyUserInfo = UserInfo.defaultValues();
+    String initialMessage;
+
+    try {
+      initialMessage = await _viewModel.startDreamChat(
+        userInfo: dummyUserInfo,
+        title: widget.dreamEntry.dreamTitle,
+        analysis: analysis,
+      );
+    } catch (e) {
+      initialMessage = "Sorry, I couldn't start the conversation.";
+    }
+
+    if (!mounted) return;
+    log("Navigating to ChatScreen with message: $initialMessage");
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatScreen(initialMessage: initialMessage),
+      ),
+    );
+  }
+
   Future<dynamic> _buildAnalysisWindow(String result) {
     return showModalBottomSheet(
       context: context,
@@ -123,13 +154,42 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Text(
-                  "Dream Analysis",
-                  style: GoogleFonts.robotoFlex(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: ColorConstant.onPrimary,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Dream Analysis",
+                      style: GoogleFonts.robotoFlex(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: ColorConstant.onPrimary,
+                      ),
+                    ),
+                    // Buttons (talk about it)
+                    SizedBox(
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _startChatDiscussion(context, result),
+                        icon: Icon(Icons.chat_outlined, size: 24),
+                        label: Text(
+                          "Let's talk about this",
+                          style: GoogleFonts.robotoFlex(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: ColorConstant.onPrimary,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: ColorConstant.primaryContainer,
+                          foregroundColor: ColorConstant.onPrimaryContainer,
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const Divider(),
                 Expanded(
@@ -195,6 +255,7 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
+                // Title and date
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
@@ -221,8 +282,11 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
                     ],
                   ),
                 ),
+                // Divider
                 Divider(color: ColorConstant.onPrimary.withAlpha(150)),
+                // Padding
                 SizedBox(height: 8),
+                // Content
                 Expanded(
                   child: RawScrollbar(
                     thumbColor: ColorConstant.secondaryContainer,
@@ -242,7 +306,9 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
                     ),
                   ),
                 ),
+                // Padding
                 SizedBox(height: 16),
+                // Buttons (edit, delete, analyze)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -358,9 +424,12 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
                                   color: ColorConstant.onPrimary,
                                 ),
                               )
-                            : Icon(_viewModel.existingAnalysis != null ?
-                        Icons.visibility_outlined : Icons.analytics_outlined,
-                            size: 24),
+                            : Icon(
+                                _viewModel.existingAnalysis != null
+                                    ? Icons.visibility_outlined
+                                    : Icons.analytics_outlined,
+                                size: 24,
+                              ),
                         label: Text(
                           _viewModel.isAnalyzing
                               ? "Analyzing..."

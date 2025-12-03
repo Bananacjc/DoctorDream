@@ -136,25 +136,12 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
                       Container(
                         margin: EdgeInsets.only(top: 0),
                         width: size.width,
-                        height: size.height * 0.6,
                         decoration: BoxDecoration(
                           color: ColorConstant.primaryContainer,
                         ),
-                        child: RawScrollbar(
-                          controller: _scrollController,
-                          crossAxisMargin: 4,
-                          thumbColor: ColorConstant.secondaryContainer,
-                          child: ListView.builder(
-                            controller: _scrollController,
-                            padding: EdgeInsets.zero,
-                            itemCount: _viewModel.diagnosis.length,
-                            itemBuilder: (context, i) {
-                              return DreamDiagnosisItem(
-                                dreamDiagnosis: _viewModel.diagnosis[i],
-                                onRefresh: () => _viewModel.loadDiagnosis(),
-                              );
-                            },
-                          ),
+                        child: DreamDiagnosisItem(
+                          dreamDiagnosis: _viewModel.diagnosis[0],
+                          onRefresh: () => _viewModel.loadDiagnosis(),
                         ),
                       ),
                       SizedBox(height: 16),

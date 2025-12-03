@@ -111,8 +111,39 @@ ${userInfoText.isNotEmpty ? 'User Information:\n$userInfoText\n' : ''}
       ''';
   }
 
-  static String buildDreamDiagnosisPrompt() {
+  /// Prompt for Dream Analysis
+  static String buildDreamAnalysisChatPrompt(
+      UserInfo userInfo,
+      String dreamTitle,
+      String analysis,
+      ) {
+    final basePrompt = buildBasePrompt(userInfo);
 
+    return '''
+    $basePrompt
+    
+    The user wants to discuss a specific dream and its analysis. Here is the 
+    context:
+    
+    **Dream Title**: "$dreamTitle"
+    **Analysis Provided**:
+    $analysis
+    
+    Your goal is to:
+    1. Acknowledge the analysis provided.
+    2. Answer any follow-up questions the user might have about this 
+    interpretation.
+    3. Help the user explore the feelings connected to this dream deeper.
+    4. Maintain an empathetic and supportive persona defined previously.
+    
+    The user is now waiting for your response to start this discussion. 
+    Briefly summarize the key takeaway form the analysis and ask how they 
+    feel about it.
+    ''';
+  }
+
+
+  static String buildDreamDiagnosisPrompt() {
     return '''
       Act as a professional psychologist analyzing dream patterns from the 
       user's 3 most recent dreams.
@@ -122,9 +153,55 @@ ${userInfoText.isNotEmpty ? 'User Information:\n$userInfoText\n' : ''}
       2. Conclude clearly whether the user shows signs of potential mental 
       illness or if they appear healthy.
       3. Provide user something they can do to relieve their symptoms if they
-       appear to have.
+       appear to have, and include 1-2 HYPERLINKS to helpful resources 
+       related to the help provided.
       4. Keep the tone supportive and professional.
       5. Do not provide any medical prescription.
+      ''';
+  }
+
+  static String buildDreamDiagnosisChatPrompt(
+      UserInfo userInfo,
+      String diagnosis,
+      ) {
+
+    final basePrompt = buildBasePrompt(userInfo);
+
+    return '''
+    $basePrompt
+    
+    The user wants to discuss the recent Dream Diagnosis results. Here is the 
+    diagnosis context you should refer to throughout the conversation:
+    
+    **Diagnosis Provided**:
+    $diagnosis
+    
+    Your goal is to:
+    1. Acknowledge the diagnosis provided, especially the advice or resources given.
+    2. Help the user explore their reaction to the diagnosis and how they feel about the suggested coping mechanisms.
+    3. Answer any follow-up questions the user might have about the diagnosis.
+    4. Maintain an empathetic and supportive persona defined previously.
+    5. Format any provided links using Markdown: [Link Text](URL).
+    
+    The user is now waiting for your response to start this discussion. 
+    **Begin by briefly summarizing the key finding of the diagnosis and asking the user how they feel about the results and what they'd like to discuss first.**
+    ''';
+  }
+
+  static String buildComparativeDiagnosisPrompt() {
+    return '''
+    Act as a professional psychologist comparing two recent dream pattern analyses.
+
+      Your task is to review the most recent set of dreams (New Diagnosis) and compare the resulting mental state assessment against the previous assessment (Previous Diagnosis).
+
+      Based on this comparison, provide a conclusion focusing on the user's progress:
+      1. Analyze the two diagnoses for shifts in core themes, emotional tone, and potential psychological distress.
+      2. **Provide a clear conclusion (e.g., "Improved," "Worsened," or "Stable").**
+      3. Explain *why* the user's mental state is considered better, worse, or stable by citing specific changes in the dream patterns or diagnoses.
+      4. Offer supportive and professional advice, providing 1-2 HYPERLINKS to helpful external resources.
+      5. Keep the tone supportive and professional.
+      6. Do not provide any medical prescription.
+      7. Format any provided links using Markdown: [Link Text](URL).
       ''';
   }
 }

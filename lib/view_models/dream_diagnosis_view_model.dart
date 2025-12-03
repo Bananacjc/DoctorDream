@@ -9,23 +9,23 @@ import '../data/models/dream_diagnosis.dart';
 import '../data/models/dream_entry.dart';
 
 class DreamDiagnosisViewModel extends ChangeNotifier {
+  static const int _minDreamCount = 10;
   List<DreamDiagnosis> _allDiagnosis = [];
   List<DreamEntry> _allEntries = [];
   bool _isLoading = false;
   bool _isDiagnosing = false;
 
   bool get hasNoDiagnosis => _allDiagnosis.isEmpty;
-  bool get hasEnoughDreams =>  _allEntries.length >= 3;
+  bool get hasEnoughDreams => _allEntries.length >= _minDreamCount;
   List<DreamDiagnosis> get diagnosis => _allDiagnosis;
   bool get isLoading => _isLoading;
-  bool get isDiagnosing=> _isDiagnosing;
-
+  bool get isDiagnosing => _isDiagnosing;
 
   Future<void> loadDiagnosis() async {
     _isLoading = true;
     notifyListeners();
 
-    try{
+    try {
       _allEntries = await LocalDatabase.instance.fetchDreamEntries();
       _allDiagnosis = await LocalDatabase.instance.fetchDreamDiagnosis();
     } catch (e) {
@@ -46,13 +46,21 @@ class DreamDiagnosisViewModel extends ChangeNotifier {
       if (!hasEnoughDreams) {
         return "";
       }
-      final dreams = _allEntries.take(3).toList();
-      final diagnosis = await GeminiService.instance.diagnoseDream(dreams);
+
+      final String? previousDiagnosisContent = _allDiagnosis.isNotEmpty
+          ? _allDiagnosis.first.diagnosisContent
+          : null;
+
+      final dreams = _allEntries.take(_minDreamCount).toList();
+      final diagnosis = await GeminiService.instance.diagnoseDream(
+        dreams,
+        previousDiagnosis: previousDiagnosisContent,
+      );
       return diagnosis;
     } catch (e) {
       return "Error diagnosing dreams";
     } finally {
-      _isDiagnosing= false;
+      _isDiagnosing = false;
       notifyListeners();
     }
   }
@@ -68,5 +76,4 @@ class DreamDiagnosisViewModel extends ChangeNotifier {
       return false;
     }
   }
-
 }

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 import '../data/services/gemini_service.dart';
+import '../data/models/user_info.dart';
 
 class DreamDetailViewModel extends ChangeNotifier {
   String? _existingAnalysis;
@@ -37,9 +38,11 @@ class DreamDetailViewModel extends ChangeNotifier {
     _isAnalyzing = true;
     notifyListeners();
 
-    try{
-      final analysis = await GeminiService.instance.analyzeDream(title,
-          content);
+    try {
+      final analysis = await GeminiService.instance.analyzeDream(
+        title,
+        content,
+      );
       _existingAnalysis = analysis;
       return analysis;
     } catch (e) {
@@ -54,16 +57,19 @@ class DreamDetailViewModel extends ChangeNotifier {
     final analysisID = '${Uuid().v4().substring(0, 6)}_123456';
 
     try {
-      await LocalDatabase.instance.saveDreamAnalysis(dreamID, content,
-          analysisID);
+      await LocalDatabase.instance.saveDreamAnalysis(
+        dreamID,
+        content,
+        analysisID,
+      );
       return true;
     } catch (e) {
       log("ERROR SAVING ANALYSIS: $e");
       return false;
     }
-   }
+  }
 
-   Future<void> loadDreamAnalysis(String dreamID) async {
+  Future<void> loadDreamAnalysis(String dreamID) async {
     _isFetchingAnalysis = true;
     notifyListeners();
 
@@ -80,5 +86,17 @@ class DreamDetailViewModel extends ChangeNotifier {
       _isFetchingAnalysis = false;
       notifyListeners();
     }
-   }
+  }
+
+  Future<String> startDreamChat({
+    required UserInfo userInfo,
+    required String title,
+    required String analysis,
+  }) async {
+    return GeminiService.instance.startDreamAnalysisChat(
+      userInfo: userInfo,
+      title: title,
+      analysis: analysis,
+    );
+  }
 }

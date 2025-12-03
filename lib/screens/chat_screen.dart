@@ -11,7 +11,9 @@ class ChatMessage {
 }
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  final String? initialMessage;
+
+  const ChatScreen({super.key, this.initialMessage});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -25,7 +27,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<ChatMessage> _messages = [];
   bool _isSending = false;
   bool _hasUserSentMessage = false;
-  
+
   // User information - can be updated from other screens or user input
   final UserInfo _userInfo = UserInfo.defaultValues();
 
@@ -33,6 +35,15 @@ class _ChatScreenState extends State<ChatScreen> {
   static const Color accent = Color(0xFFB7B9FF);
   static const Color assistantBubbleColor = Color(0xFFE8E8FF);
   static const Color assistantTextColor = Color(0xFF081944);
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialMessage != null) {
+      _messages.add(ChatMessage(text: widget.initialMessage!, isUser: false));
+      _hasUserSentMessage = true;
+    }
+  }
 
   @override
   void dispose() {
@@ -52,11 +63,13 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {
       _isSending = true;
 
-      if (!_hasUserSentMessage) {
-        _messages.add(ChatMessage(
-          text: "Hi, I’m here to listen. What’s on your mind today?",
-          isUser: false,
-        ));
+      if (!_hasUserSentMessage && widget.initialMessage == null) {
+        _messages.add(
+          ChatMessage(
+            text: "Hi, I’m here to listen. What’s on your mind today?",
+            isUser: false,
+          ),
+        );
         _hasUserSentMessage = true;
       }
 
@@ -66,16 +79,22 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
 
     try {
-      final reply = await GeminiService.instance.chat(text, userInfo: _userInfo);
+      final reply = await GeminiService.instance.chat(
+        text,
+        userInfo: _userInfo,
+      );
       setState(() {
         _messages.add(ChatMessage(text: reply, isUser: false));
       });
     } catch (_) {
       setState(() {
-        _messages.add(ChatMessage(
-          text: "Sorry, I had trouble responding just now. Could you please try again?",
-          isUser: false,
-        ));
+        _messages.add(
+          ChatMessage(
+            text:
+                "Sorry, I had trouble responding just now. Could you please try again?",
+            isUser: false,
+          ),
+        );
       });
     } finally {
       _isSending = false;
@@ -102,7 +121,11 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: AppBar(
         title: const Text(
           'Chat',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white),
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
         ),
         backgroundColor: navy,
         centerTitle: true,
@@ -116,11 +139,15 @@ class _ChatScreenState extends State<ChatScreen> {
               child: (!_hasUserSentMessage && _messages.isEmpty)
                   ? _buildEmptyState()
                   : ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                itemCount: _messages.length,
-                itemBuilder: (_, index) => _buildMessageBubble(_messages[index]),
-              ),
+                      controller: _scrollController,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      itemCount: _messages.length,
+                      itemBuilder: (_, index) =>
+                          _buildMessageBubble(_messages[index]),
+                    ),
             ),
 
             if (_isSending)
@@ -132,12 +159,18 @@ class _ChatScreenState extends State<ChatScreen> {
                     SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     ),
                     SizedBox(width: 8),
                     Text(
                       'DoctorDream is typing...',
-                      style: TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontStyle: FontStyle.italic,
+                      ),
                     ),
                   ],
                 ),
@@ -161,7 +194,11 @@ class _ChatScreenState extends State<ChatScreen> {
           const Text(
             "Let’s chat to make life happier",
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 24),
 
@@ -174,19 +211,31 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             child: const Column(
               children: [
-                Icon(Icons.chat_bubble_outline_rounded, color: Colors.white, size: 32),
+                Icon(
+                  Icons.chat_bubble_outline_rounded,
+                  color: Colors.white,
+                  size: 32,
+                ),
                 SizedBox(height: 12),
                 Text(
                   "You can tell me about your day,\nyour worries, your dreams,\nor anything that’s on your mind.",
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      color: Colors.white, fontStyle: FontStyle.italic, height: 1.5, fontSize: 15),
+                    color: Colors.white,
+                    fontStyle: FontStyle.italic,
+                    height: 1.5,
+                    fontSize: 15,
+                  ),
                 ),
                 SizedBox(height: 8),
                 Text(
                   "Whenever you’re ready,\nstart by typing below.",
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
                 ),
               ],
             ),
@@ -224,7 +273,10 @@ class _ChatScreenState extends State<ChatScreen> {
             hintText: 'Ask DoctorDream',
             hintStyle: const TextStyle(color: Colors.white70),
             border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
             suffixIcon: Padding(
               padding: const EdgeInsets.only(right: 8),
               child: Container(
@@ -235,8 +287,14 @@ class _ChatScreenState extends State<ChatScreen> {
                   shape: BoxShape.circle,
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-                  onPressed: _textController.text.isNotEmpty ? _sendMessage : null,
+                  icon: const Icon(
+                    Icons.send_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  onPressed: _textController.text.isNotEmpty
+                      ? _sendMessage
+                      : null,
                 ),
               ),
             ),
@@ -255,12 +313,14 @@ class _ChatScreenState extends State<ChatScreen> {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
-        mainAxisAlignment:
-        message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: message.isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         children: [
           Container(
-            constraints:
-            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.75,
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: bubbleColor,

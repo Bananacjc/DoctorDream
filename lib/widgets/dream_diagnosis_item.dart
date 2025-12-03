@@ -44,17 +44,26 @@ class DreamDiagnosisItem extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              "Dream Diagnosis",
-              style: GoogleFonts.robotoFlex(
-                color: Theme.of(context).colorScheme.onSecondaryContainer,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.start,
-              maxLines: 1,
+            Row(
+              children: [
+                Column(
+                  children: [
+                    Text(
+                      "Dream Diagnosis",
+                      style: GoogleFonts.robotoFlex(
+                        color: Theme.of(context).colorScheme.onSecondaryContainer,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.start,
+                      maxLines: 1,
+                    ),
+                  ],
+                )
+              ],
             ),
+
             Divider(),
             SizedBox(
               child: Text(
