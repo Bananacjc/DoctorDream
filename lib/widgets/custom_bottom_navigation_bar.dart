@@ -96,7 +96,7 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
                 ),
                 selected: _currentIndex == 3,
               ),
-              label: 'Chat',
+              label: 'Companion',
             ),
             BottomNavigationBarItem(
               icon: _CustomBottomBarIcon(

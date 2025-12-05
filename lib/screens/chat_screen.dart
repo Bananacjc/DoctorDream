@@ -120,7 +120,7 @@ class _ChatScreenState extends State<ChatScreen> {
       backgroundColor: navy,
       appBar: AppBar(
         title: const Text(
-          'Chat',
+          'Dream Companion',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w700,
@@ -192,7 +192,7 @@ class _ChatScreenState extends State<ChatScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Text(
-            "Let’s chat to make life happier",
+            "Let’s talk to make life happier",
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.white,
@@ -270,7 +270,7 @@ class _ChatScreenState extends State<ChatScreen> {
           onSubmitted: (_) => _sendMessage(),
           style: const TextStyle(color: Colors.white, fontSize: 16),
           decoration: InputDecoration(
-            hintText: 'Ask DoctorDream',
+            hintText: 'Share with DoctorDream...',
             hintStyle: const TextStyle(color: Colors.white70),
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(

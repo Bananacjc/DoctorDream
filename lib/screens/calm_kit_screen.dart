@@ -1,4 +1,11 @@
 import 'package:flutter/material.dart';
+import '../data/local/local_database.dart';
+import '../data/models/music_track.dart';
+import '../data/models/video_track.dart';
+import '../data/models/article_recommendation.dart';
+import 'song_player_screen.dart';
+import 'video_player_screen.dart';
+import 'article_screen.dart';
 
 class CalmKitScreen extends StatefulWidget {
   const CalmKitScreen({super.key});
@@ -7,147 +14,256 @@ class CalmKitScreen extends StatefulWidget {
   State<CalmKitScreen> createState() => _CalmKitScreenState();
 }
 
+class _SavedItem {
+  final String id;
+  final String title;
+  final String subtitle;
+  final String type; // 'music', 'video', 'article'
+  final dynamic originalItem;
+  final String? thumbnailUrl;
+  final DateTime savedAt;
+
+  _SavedItem({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.type,
+    required this.originalItem,
+    this.thumbnailUrl,
+    required this.savedAt,
+  });
+}
+
+enum _FilterType { all, music, video, article }
+enum _SortOption { dateNewest, dateOldest, category }
+
 class _CalmKitScreenState extends State<CalmKitScreen> {
-  final List<_CalmResource> _resources = [
-    _CalmResource(title: 'Ocean Waves', description: '5 min audio reset'),
-    _CalmResource(title: '4-7-8 Breath', description: 'Guided breathing drill'),
-    _CalmResource(title: 'Gentle Stretch', description: 'Neck + shoulders'),
-    _CalmResource(title: 'Gratitude Notes', description: 'List 3 good things'),
-    _CalmResource(title: 'Warm Tea', description: 'Chamomile ritual'),
-  ];
+  List<_SavedItem> _allItems = [];
+  List<_SavedItem> _filteredItems = [];
+  bool _isLoading = true;
+  _FilterType _selectedFilter = _FilterType.all;
+  _SortOption _selectedSort = _SortOption.dateNewest;
 
-  Future<void> _addResource() async {
-    final titleController = TextEditingController();
-    final descriptionController = TextEditingController();
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-        ),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A2F55),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Text(
-                    'Add Calm Tool',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
-                  )
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: titleController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Title',
-                  labelStyle: const TextStyle(color: Colors.white70),
-                  prefixIcon: const Icon(Icons.self_improvement_outlined,
-                      color: Colors.white70),
-                  filled: true,
-                  fillColor: Colors.white.withOpacity(0.08),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
-                  ),
-                  focusedBorder: const OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(16)),
-                    borderSide: BorderSide(color: Color(0xFF9CC4FF)),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: descriptionController,
-                maxLines: 3,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Reminder / Usage',
-                  hintText: 'Short note for how you use this tool',
-                  labelStyle: const TextStyle(color: Colors.white70),
-                  hintStyle: const TextStyle(color: Colors.white54),
-                  filled: true,
-                  fillColor: Colors.white.withOpacity(0.08),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
-                  ),
-                  focusedBorder: const OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(16)),
-                    borderSide: BorderSide(color: Color(0xFF9CC4FF)),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    if (titleController.text.trim().isEmpty) return;
-                    setState(() {
-                      _resources.add(
-                        _CalmResource(
-                          title: titleController.text.trim(),
-                          description: descriptionController.text.trim(),
-                        ),
-                      );
-                    });
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text('Save Tool'),
-                ),
-              )
-            ],
-          ),
-        ),
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedItems();
   }
 
-  void _removeResource(int index) {
-    final removed = _resources[index];
+  Future<void> _loadSavedItems() async {
+    setState(() => _isLoading = true);
+    try {
+      final music = await LocalDatabase.instance.fetchSavedMusic();
+      final videos = await LocalDatabase.instance.fetchSavedVideos();
+      final articles = await LocalDatabase.instance.fetchSavedArticles();
+
+      final items = <_SavedItem>[];
+
+      for (var item in music) {
+        items.add(_SavedItem(
+          id: 'music_${item.title}',
+          title: item.title,
+          subtitle: item.artist,
+          type: 'music',
+          originalItem: item,
+          thumbnailUrl: item.thumbnailUrl,
+          savedAt: item.savedAt ?? DateTime.now(), // Fallback if null, though DB should provide it
+        ));
+      }
+
+      for (var item in videos) {
+        items.add(_SavedItem(
+          id: 'video_${item.title}',
+          title: item.title,
+          subtitle: item.channel ?? 'YouTube',
+          type: 'video',
+          originalItem: item,
+          thumbnailUrl: item.thumbnailUrl,
+          savedAt: item.savedAt ?? DateTime.now(),
+        ));
+      }
+
+      for (var item in articles) {
+        items.add(_SavedItem(
+          id: 'article_${item.title}',
+          title: item.title,
+          subtitle: 'Article',
+          type: 'article',
+          originalItem: item,
+          savedAt: item.savedAt ?? DateTime.now(),
+        ));
+      }
+
+      if (mounted) {
+        setState(() {
+          _allItems = items;
+          _applyFilterAndSort();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading saved items: $e')),
+        );
+      }
+    }
+  }
+
+  void _applyFilterAndSort() {
+    // 1. Filter
+    List<_SavedItem> temp;
+    if (_selectedFilter == _FilterType.all) {
+      temp = List.from(_allItems);
+    } else {
+      final typeString = _selectedFilter.name;
+      temp = _allItems.where((item) => item.type == typeString).toList();
+    }
+
+    // 2. Sort
+    switch (_selectedSort) {
+      case _SortOption.dateNewest:
+        temp.sort((a, b) => b.savedAt.compareTo(a.savedAt));
+        break;
+      case _SortOption.dateOldest:
+        temp.sort((a, b) => a.savedAt.compareTo(b.savedAt));
+        break;
+      case _SortOption.category:
+        // Sort by type first (Music -> Video -> Article), then date descending
+        temp.sort((a, b) {
+          int typeCompare = a.type.compareTo(b.type);
+          if (typeCompare != 0) return typeCompare;
+          return b.savedAt.compareTo(a.savedAt);
+        });
+        break;
+    }
+
+    _filteredItems = temp;
+  }
+
+  void _onFilterChanged(_FilterType type) {
     setState(() {
-      _resources.removeAt(index);
+      _selectedFilter = type;
+      _applyFilterAndSort();
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${removed.title} removed from Calm Kit')),
-    );
+  }
+
+  void _onSortChanged(_SortOption sort) {
+    setState(() {
+      _selectedSort = sort;
+      _applyFilterAndSort();
+    });
+  }
+
+  Future<void> _removeItem(int index) async {
+    final item = _filteredItems[index];
+    try {
+      if (item.type == 'music') {
+        await LocalDatabase.instance.removeMusic(item.originalItem as MusicTrack);
+      } else if (item.type == 'video') {
+        await LocalDatabase.instance.removeVideo(item.originalItem as VideoTrack);
+      } else if (item.type == 'article') {
+        await LocalDatabase.instance.removeArticle(item.originalItem as ArticleRecommendation);
+      }
+
+      setState(() {
+        _allItems.removeWhere((element) => element.id == item.id);
+        _applyFilterAndSort();
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${item.title} removed'),
+            action: SnackBarAction(
+              label: 'Undo',
+              onPressed: () {
+                 // To implement Undo, we'd need to re-save. 
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error removing item: $e')),
+        );
+      }
+    }
+  }
+
+  void _openItem(_SavedItem item) {
+    if (item.type == 'music') {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SongPlayerScreen(track: item.originalItem as MusicTrack),
+        ),
+      ).then((_) => _loadSavedItems());
+    } else if (item.type == 'video') {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => VideoPlayerScreen(track: item.originalItem as VideoTrack),
+        ),
+      ).then((_) => _loadSavedItems());
+    } else if (item.type == 'article') {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ArticleScreen(article: item.originalItem as ArticleRecommendation),
+        ),
+      ).then((_) => _loadSavedItems());
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('My Calm Kit'),
         elevation: 0,
         backgroundColor: Colors.transparent,
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _addResource,
-        backgroundColor: const Color(0xFF4E8BFF),
-        icon: const Icon(Icons.add),
-        label: const Text('Add Tool'),
+        centerTitle: true,
+        actions: [
+          PopupMenuButton<_SortOption>(
+            icon: const Icon(Icons.sort_rounded, color: Colors.white),
+            onSelected: _onSortChanged,
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: _SortOption.dateNewest,
+                child: Row(
+                  children: [
+                    Icon(Icons.access_time_filled, color: Colors.black87, size: 20),
+                    SizedBox(width: 8),
+                    Text('Newest First'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: _SortOption.dateOldest,
+                child: Row(
+                  children: [
+                    Icon(Icons.history, color: Colors.black87, size: 20),
+                    SizedBox(width: 8),
+                    Text('Oldest First'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: _SortOption.category,
+                child: Row(
+                  children: [
+                    Icon(Icons.category, color: Colors.black87, size: 20),
+                    SizedBox(width: 8),
+                    Text('By Category'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: Container(
         decoration: const BoxDecoration(
@@ -158,49 +274,110 @@ class _CalmKitScreenState extends State<CalmKitScreen> {
           ),
         ),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-            child: _resources.isEmpty
-                ? Center(
-                    child: Text(
-                      'Add your favorite calming tools to see them here.',
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(color: Colors.white70),
-                      textAlign: TextAlign.center,
-                    ),
-                  )
-                : GridView.builder(
-                    itemCount: _resources.length,
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 140 / 176,
-                    ),
-                    itemBuilder: (context, index) {
-                      final resource = _resources[index];
-                      return Dismissible(
-                        key: ValueKey(resource.title + index.toString()),
-                        direction: DismissDirection.up,
-                        onDismissed: (_) => _removeResource(index),
-                        background: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade200.withOpacity(0.4),
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.delete_outline,
-                            color: Colors.white,
-                          ),
-                        ),
-                        child: _CalmResourceCard(
-                          resource: resource,
-                          onRemove: () => _removeResource(index),
-                        ),
-                      );
-                    },
+          child: Column(
+            children: [
+              // Filter Section
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                child: SizedBox(
+                  height: 40,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    children: [
+                      _FilterChip(
+                        label: 'All',
+                        isSelected: _selectedFilter == _FilterType.all,
+                        onTap: () => _onFilterChanged(_FilterType.all),
+                      ),
+                      const SizedBox(width: 12),
+                      _FilterChip(
+                        label: 'Music',
+                        isSelected: _selectedFilter == _FilterType.music,
+                        onTap: () => _onFilterChanged(_FilterType.music),
+                      ),
+                      const SizedBox(width: 12),
+                      _FilterChip(
+                        label: 'Video',
+                        isSelected: _selectedFilter == _FilterType.video,
+                        onTap: () => _onFilterChanged(_FilterType.video),
+                      ),
+                      const SizedBox(width: 12),
+                      _FilterChip(
+                        label: 'Articles',
+                        isSelected: _selectedFilter == _FilterType.article,
+                        onTap: () => _onFilterChanged(_FilterType.article),
+                      ),
+                    ],
                   ),
+                ),
+              ),
+
+              // Content Grid
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                    : _filteredItems.isEmpty
+                        ? _EmptyState(filter: _selectedFilter)
+                        : GridView.builder(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            itemCount: _filteredItems.length,
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                              childAspectRatio: 0.7, // Optimized aspect ratio for card layout
+                            ),
+                            itemBuilder: (context, index) {
+                              final item = _filteredItems[index];
+                              return Dismissible(
+                                key: ValueKey(item.id),
+                                direction: DismissDirection.endToStart,
+                                confirmDismiss: (direction) async {
+                                  return await showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return AlertDialog(
+                                        backgroundColor: const Color(0xFF0D2357),
+                                        title: const Text("Confirm", style: TextStyle(color: Colors.white)),
+                                        content: const Text("Remove this item from your Calm Kit?", style: TextStyle(color: Colors.white70)),
+                                        actions: <Widget>[
+                                          TextButton(
+                                            onPressed: () => Navigator.of(context).pop(false),
+                                            child: const Text("Cancel", style: TextStyle(color: Colors.white54)),
+                                          ),
+                                          TextButton(
+                                            onPressed: () => Navigator.of(context).pop(true),
+                                            child: const Text("Remove", style: TextStyle(color: Colors.redAccent)),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                },
+                                onDismissed: (_) => _removeItem(index),
+                                background: Container(
+                                  margin: const EdgeInsets.symmetric(vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade400,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.only(right: 20),
+                                  child: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                child: _CalmResourceCard(
+                                  item: item,
+                                  onTap: () => _openItem(item),
+                                ),
+                              );
+                            },
+                          ),
+              ),
+            ],
           ),
         ),
       ),
@@ -208,147 +385,373 @@ class _CalmKitScreenState extends State<CalmKitScreen> {
   }
 }
 
-class _CalmResource {
-  _CalmResource({required this.title, required this.description});
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
 
-  final String title;
-  final String description;
+  const _FilterChip({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFB7B9FF) : Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? const Color(0xFFB7B9FF) : Colors.white.withOpacity(0.2),
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? const Color(0xFF081944) : Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  final _FilterType filter;
+
+  const _EmptyState({required this.filter});
+
+  @override
+  Widget build(BuildContext context) {
+    String message;
+    IconData icon;
+
+    switch (filter) {
+      case _FilterType.music:
+        message = 'No saved music yet.\nFind some tunes to relax!';
+        icon = Icons.music_note_outlined;
+        break;
+      case _FilterType.video:
+        message = 'No saved videos yet.\nWatch something calming!';
+        icon = Icons.play_circle_outline;
+        break;
+      case _FilterType.article:
+        message = 'No saved articles yet.\nRead and save for later!';
+        icon = Icons.article_outlined;
+        break;
+      case _FilterType.all:
+        message = 'Your Calm Kit is empty.\nSave your favorite resources here.';
+        icon = Icons.favorite_border;
+        break;
+    }
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 48, color: Colors.white24),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: const TextStyle(
+              color: Colors.white60,
+              fontSize: 16,
+              height: 1.5,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
 }
 
 class _CalmResourceCard extends StatelessWidget {
   const _CalmResourceCard({
-    required this.resource,
-    required this.onRemove,
+    required this.item,
+    required this.onTap,
   });
 
-  final _CalmResource resource;
-  final VoidCallback onRemove;
+  final _SavedItem item;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () {
-        // Optional: Could add detail view or action
-      },
-      onLongPress: onRemove,
-      borderRadius: BorderRadius.circular(18),
-      child: Ink(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF243B6B), Color(0xFF0D2357)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E325C),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: SizedBox(
-          height: 176,
-          width: 140,
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Stack(
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Full-bleed Image Section
+              Expanded(
+                flex: 3,
+                child: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    _CalmThumb(initials: resource.title),
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      child: GestureDetector(
-                        onTap: onRemove,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.5),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.close,
-                            size: 14,
-                            color: Colors.white,
-                          ),
+                    _CalmThumb(
+                      initials: item.title,
+                      type: item.type,
+                      thumbnailUrl: item.thumbnailUrl,
+                    ),
+                    
+                    // Gradient overlay
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withOpacity(0.0),
+                            Colors.black.withOpacity(0.2),
+                          ],
                         ),
                       ),
                     ),
+
+                    // Type Badge (Top Right)
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white24, width: 0.5),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _getTypeIcon(item.type),
+                              size: 10,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              item.type[0].toUpperCase() + item.type.substring(1),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Play Button (Center) for playable media
+                    if (item.type != 'article')
+                      Center(
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.25),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          child: Icon(
+                            item.type == 'music' ? Icons.play_arrow_rounded : Icons.play_arrow_rounded,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Expanded(
+              ),
+              
+              // Text Content Section
+              Expanded(
+                flex: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        resource.title,
-                        maxLines: 1,
+                        item.title,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.bold,
                           color: Colors.white,
                           fontSize: 14,
                           height: 1.2,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Flexible(
-                        child: Text(
-                          resource.description.isEmpty
-                              ? 'Calm tool'
-                              : resource.description,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFFB4BEDA),
-                          ),
+                      const SizedBox(height: 6),
+                      Text(
+                        item.subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white.withOpacity(0.6),
                         ),
+                      ),
+                      const Spacer(),
+                      Text(
+                         // Display Saved Time (Relative or simple date)
+                         _formatDate(item.savedAt),
+                         style: TextStyle(
+                           fontSize: 10,
+                           color: Colors.white.withOpacity(0.4),
+                           fontStyle: FontStyle.italic,
+                         ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    if (diff.inDays < 1) {
+      return 'Saved today';
+    } else if (diff.inDays < 7) {
+      return 'Saved ${diff.inDays}d ago';
+    }
+    return 'Saved ${date.day}/${date.month}/${date.year}';
+  }
+
+  IconData _getTypeIcon(String type) {
+    if (type == 'music') return Icons.headphones;
+    if (type == 'video') return Icons.videocam;
+    return Icons.article;
   }
 }
 
 class _CalmThumb extends StatelessWidget {
   final String initials;
+  final String type;
+  final String? thumbnailUrl;
 
-  const _CalmThumb({required this.initials});
+  const _CalmThumb({
+    required this.initials, 
+    required this.type,
+    this.thumbnailUrl,
+  });
 
   @override
   Widget build(BuildContext context) {
     final display = initials.isNotEmpty ? initials[0].toUpperCase() : '?';
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: AspectRatio(
-        aspectRatio: 1,
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFFB7B9FF), Color(0xFF6C6EE4)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+    
+    Color color1;
+    Color color2;
+    
+    if (type == 'music') {
+      color1 = const Color(0xFFB7B9FF);
+      color2 = const Color(0xFF6C6EE4);
+    } else if (type == 'video') {
+      color1 = const Color(0xFFFFB7B2);
+      color2 = const Color(0xFFFF80AB);
+    } else {
+      color1 = const Color(0xFFB2F5EA);
+      color2 = const Color(0xFF4FD1C5);
+    }
+
+    // No ClipRRect here, parent handles clipping
+    return thumbnailUrl != null
+        ? Image.network(
+            thumbnailUrl!,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _Placeholder(
+              display: display, 
+              color1: color1, 
+              color2: color2,
             ),
-          ),
-          child: Center(
-            child: Text(
-              display,
-              style: const TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return _Placeholder(
+                display: display, 
+                color1: color1, 
+                color2: color2,
+              );
+            },
+          )
+        : _Placeholder(
+            display: display, 
+            color1: color1, 
+            color2: color2,
+          );
+  }
+}
+
+class _Placeholder extends StatelessWidget {
+  final String display;
+  final Color color1;
+  final Color color2;
+
+  const _Placeholder({
+    required this.display,
+    required this.color1,
+    required this.color2,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color1, color2],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Text(
+          display,
+          style: const TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
       ),
     );
   }
 }
-

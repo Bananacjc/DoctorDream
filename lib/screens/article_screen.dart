@@ -1,11 +1,51 @@
 import 'package:flutter/material.dart';
 
+import '../data/local/local_database.dart';
 import '../data/models/article_recommendation.dart';
 
-class ArticleScreen extends StatelessWidget {
+class ArticleScreen extends StatefulWidget {
   const ArticleScreen({super.key, required this.article});
 
   final ArticleRecommendation article;
+
+  @override
+  State<ArticleScreen> createState() => _ArticleScreenState();
+}
+
+class _ArticleScreenState extends State<ArticleScreen> {
+  bool _isSaved = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkIfSaved();
+  }
+
+  Future<void> _checkIfSaved() async {
+    final isSaved = await LocalDatabase.instance.isArticleSaved(widget.article);
+    if (mounted) {
+      setState(() => _isSaved = isSaved);
+    }
+  }
+
+  Future<void> _toggleSave() async {
+    if (_isSaved) {
+      await LocalDatabase.instance.removeArticle(widget.article);
+    } else {
+      await LocalDatabase.instance.saveArticle(widget.article);
+    }
+    if (mounted) {
+      setState(() => _isSaved = !_isSaved);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isSaved ? 'Added to Calm Kit' : 'Removed from Calm Kit',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,6 +58,15 @@ class ArticleScreen extends StatelessWidget {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text('Article'),
+        actions: [
+          IconButton(
+            onPressed: _toggleSave,
+            icon: Icon(
+              _isSaved ? Icons.favorite : Icons.favorite_border,
+              color: _isSaved ? Colors.redAccent : Colors.white,
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -30,7 +79,7 @@ class ArticleScreen extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      article.title,
+                      widget.article.title,
                       style: theme.textTheme.headlineSmall?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -48,7 +97,7 @@ class ArticleScreen extends StatelessWidget {
               Wrap(
                 spacing: 8,
                 runSpacing: 6,
-                children: article.tags
+                children: widget.article.tags
                     .map(
                       (tag) => Container(
                         padding: const EdgeInsets.symmetric(
@@ -79,7 +128,7 @@ class ArticleScreen extends StatelessWidget {
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: _buildContentBlocks(article.content),
+                  children: _buildContentBlocks(widget.article.content),
                 ),
               ),
             ],
@@ -90,8 +139,8 @@ class ArticleScreen extends StatelessWidget {
   }
 
   void _showDetails(BuildContext context) {
-    final summary = _cleanInlineMarkdown(article.summary);
-    final mood = article.moodBenefit?.trim();
+    final summary = _cleanInlineMarkdown(widget.article.summary);
+    final mood = widget.article.moodBenefit?.trim();
 
     showModalBottomSheet(
       context: context,
