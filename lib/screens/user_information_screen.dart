@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../data/models/user_profile.dart';
 import '../view_models/user_profile_view_model.dart';
 
@@ -23,6 +22,8 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
   bool _hasAppliedInitialProfile = false;
   late final UserProfileViewModel _viewModel;
 
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +41,7 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
     _locationController.dispose();
     _notesController.dispose();
     _viewModel.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -84,57 +86,14 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
         content: Text(
           success ? 'Profile saved locally.' : 'Error saving profile.',
         ),
-      ),
-    );
-  }
-
-  InputDecoration _decoration(String label) {
-    return InputDecoration(
-      labelText: label,
-      filled: true,
-      fillColor: Colors.white.withOpacity(0.08),
-      labelStyle: const TextStyle(
-        fontWeight: FontWeight.w500,
-        color: Colors.white70,
-      ),
-      hintStyle: const TextStyle(color: Colors.white54),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: Color(0xFF9CC4FF), width: 1.6),
-      ),
-    );
-  }
-
-  Widget _buildField(
-    String label,
-    TextEditingController controller, {
-    int maxLines = 1,
-    TextInputType? keyboardType,
-    TextCapitalization textCapitalization = TextCapitalization.words,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: TextField(
-        controller: controller,
-        readOnly: !_isEditing,
-        maxLines: maxLines,
-        keyboardType: keyboardType,
-        textCapitalization: maxLines > 1
-            ? TextCapitalization.sentences
-            : textCapitalization,
-        style: const TextStyle(color: Colors.white),
-        decoration: _decoration(label),
+        backgroundColor: success ? Colors.green : Colors.red,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return ListenableBuilder(
       listenable: _viewModel,
       builder: (context, child) {
@@ -144,29 +103,54 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
         }
 
         if (_viewModel.isLoading) {
-          return Scaffold(
-            backgroundColor: const Color(0xFF0B1F44),
-            body: const Center(
-              child: CircularProgressIndicator(
-                color: Colors.white,
-              ),
+          return const Scaffold(
+            backgroundColor: Color(0xFF0B1F44),
+            body: Center(
+              child: CircularProgressIndicator(color: Colors.white),
             ),
           );
         }
 
         return Scaffold(
+          backgroundColor: const Color(0xFF0B1F44),
           extendBodyBehindAppBar: true,
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
-            title: const Text('User Information'),
-            actions: [
-              TextButton.icon(
-                style: TextButton.styleFrom(foregroundColor: Colors.white),
-                onPressed: _toggleEditState,
-                icon: Icon(_isEditing ? Icons.check : Icons.edit),
-                label: Text(_isEditing ? 'Save' : 'Edit'),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            title: const Text(
+              'My Profile',
+              style: TextStyle(
+                color: Colors.white, 
+                fontWeight: FontWeight.w600,
               ),
+            ),
+            centerTitle: true,
+            actions: [
+              if (_isEditing)
+                IconButton(
+                  onPressed: _viewModel.isSaving ? null : _toggleEditState,
+                  icon: _viewModel.isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(Icons.check_rounded, color: Colors.white),
+                  tooltip: 'Save Profile',
+                )
+              else
+                IconButton(
+                  onPressed: _toggleEditState,
+                  icon: const Icon(Icons.edit_rounded, color: Colors.white),
+                  tooltip: 'Edit Profile',
+                ),
             ],
           ),
           body: Container(
@@ -178,140 +162,139 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
               ),
             ),
             child: SafeArea(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              child: Column(
                 children: [
-                  Card(
-                    color: Colors.white.withOpacity(0.12),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      side: BorderSide(color: Colors.white.withOpacity(0.15)),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 16,
-                      ),
-                      child: Row(
+                  Expanded(
+                    child: SingleChildScrollView(
+                      controller: _scrollController,
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      child: Column(
                         children: [
-                          CircleAvatar(
-                            radius: 32,
-                            backgroundColor: Colors.white.withOpacity(0.3),
-                            child: const Icon(Icons.person, size: 36),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          const SizedBox(height: 10),
+                          // Avatar Section
+                          Center(
+                            child: Stack(
                               children: [
-                                Text(
-                                  _nameController.text.isEmpty
-                                      ? 'User Profile'
-                                      : _nameController.text,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style:
-                                      theme.textTheme.titleLarge?.copyWith(
-                                    color: Colors.white,
+                                Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.2), 
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: CircleAvatar(
+                                    radius: 50,
+                                    backgroundColor: const Color(0xFF243B6B),
+                                    child: const Icon(
+                                      Icons.person_rounded, 
+                                      size: 50, 
+                                      color: Colors.white,
+                                    ),
                                   ),
                                 ),
-                                Text(
-                                  'Tap edit to update your profile',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: Colors.white70,
+                                if (_isEditing)
+                                  Positioned(
+                                    bottom: 0,
+                                    right: 4,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFF4E8BFF),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.camera_alt_rounded,
+                                        size: 16,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                                   ),
-                                ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF13254F),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.white.withOpacity(0.05)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        children: [
-                          _buildField('Full Name', _nameController),
-                          _buildField('Pronouns', _pronounsController),
-                          _buildField(
-                            'Birthday',
-                            _birthdayController,
-                            keyboardType: TextInputType.datetime,
-                            textCapitalization: TextCapitalization.none,
-                          ),
-                          _buildField(
-                            'Email',
-                            _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            textCapitalization: TextCapitalization.none,
-                          ),
-                          _buildField(
-                            'Phone Number',
-                            _phoneController,
-                            keyboardType: TextInputType.phone,
-                            textCapitalization: TextCapitalization.none,
-                          ),
-                          _buildField('City / Timezone', _locationController),
-                          _buildField(
-                            'Personal Notes',
-                            _notesController,
-                            maxLines: 4,
-                            textCapitalization: TextCapitalization.sentences,
-                          ),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 14),
-                                backgroundColor: const Color(0xFF4E8BFF),
-                                disabledBackgroundColor:
-                                    Colors.blueGrey.shade200,
-                              ),
-                              onPressed: _isEditing && !_viewModel.isSaving
-                                  ? _toggleEditState
-                                  : null,
-                              icon: _viewModel.isSaving
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.save),
-                              label: Text(_viewModel.isSaving
-                                  ? 'Saving...'
-                                  : 'Save Changes'),
-                            ),
-                          ),
-                          if (_viewModel.errorMessage != null) ...[
-                            const SizedBox(height: 12),
+                          const SizedBox(height: 16),
+                          
+                          // Name & Pronouns (Header)
+                          if (!_isEditing) ...[
                             Text(
-                              _viewModel.errorMessage!,
+                              _nameController.text.isNotEmpty 
+                                  ? _nameController.text 
+                                  : 'Your Name',
+                              textAlign: TextAlign.center,
                               style: const TextStyle(
-                                color: Colors.redAccent,
-                                fontSize: 12,
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
+                            if (_pronounsController.text.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  _pronounsController.text,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.6),
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(height: 32),
                           ],
+
+                          // Form Fields
+                          _buildSectionTitle('Identity'),
+                          _buildField(
+                            'Full Name', 
+                            _nameController, 
+                            icon: Icons.badge_outlined,
+                          ),
+                          _buildField(
+                            'Pronouns', 
+                            _pronounsController, 
+                            icon: Icons.record_voice_over_outlined,
+                          ),
+                          _buildField(
+                            'Birthday', 
+                            _birthdayController, 
+                            icon: Icons.cake_outlined,
+                            keyboardType: TextInputType.datetime,
+                          ),
+
+                          const SizedBox(height: 16),
+                          _buildSectionTitle('Contact'),
+                          _buildField(
+                            'Email', 
+                            _emailController, 
+                            icon: Icons.email_outlined,
+                            keyboardType: TextInputType.emailAddress,
+                          ),
+                          _buildField(
+                            'Phone', 
+                            _phoneController, 
+                            icon: Icons.phone_outlined,
+                            keyboardType: TextInputType.phone,
+                          ),
+                          _buildField(
+                            'Location', 
+                            _locationController, 
+                            icon: Icons.location_on_outlined,
+                          ),
+
+                          const SizedBox(height: 16),
+                          _buildSectionTitle('About'),
+                          _buildField(
+                            'Personal Notes', 
+                            _notesController, 
+                            icon: Icons.edit_note_outlined,
+                            maxLines: 4,
+                          ),
+                          
+                          // Bottom spacing for FAB
+                          const SizedBox(height: 80),
                         ],
                       ),
                     ),
@@ -320,8 +303,82 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
               ),
             ),
           ),
+          floatingActionButton: null,
         );
       },
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, left: 4),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.5),
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildField(
+    String label,
+    TextEditingController controller, {
+    int maxLines = 1,
+    TextInputType? keyboardType,
+    IconData? icon,
+  }) {
+    final isReadOnly = !_isEditing;
+    
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isReadOnly 
+              ? Colors.white.withOpacity(0.05) 
+              : Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isReadOnly 
+                ? Colors.transparent 
+                : Colors.white.withOpacity(0.2),
+          ),
+        ),
+        child: TextField(
+          controller: controller,
+          readOnly: isReadOnly,
+          maxLines: maxLines,
+          keyboardType: keyboardType,
+          textCapitalization: TextCapitalization.words,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+          decoration: InputDecoration(
+            labelText: label,
+            labelStyle: TextStyle(
+              color: isReadOnly 
+                  ? Colors.white.withOpacity(0.5) 
+                  : Colors.white.withOpacity(0.8),
+            ),
+            prefixIcon: icon != null 
+                ? Icon(
+                    icon, 
+                    color: isReadOnly 
+                        ? Colors.white.withOpacity(0.4) 
+                        : const Color(0xFF4E8BFF),
+                    size: 22,
+                  ) 
+                : null,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            isDense: true,
+          ),
+        ),
+      ),
     );
   }
 }

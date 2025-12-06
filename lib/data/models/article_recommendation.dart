@@ -5,6 +5,7 @@ class ArticleRecommendation {
     required this.content,
     this.moodBenefit,
     this.tags = const [],
+    this.savedAt,
   });
 
   final String title;
@@ -12,6 +13,7 @@ class ArticleRecommendation {
   final String content;
   final String? moodBenefit;
   final List<String> tags;
+  final DateTime? savedAt;
 
   ArticleRecommendation copyWith({
     String? title,
@@ -19,6 +21,7 @@ class ArticleRecommendation {
     String? content,
     String? moodBenefit,
     List<String>? tags,
+    DateTime? savedAt,
   }) {
     return ArticleRecommendation(
       title: title ?? this.title,
@@ -26,6 +29,7 @@ class ArticleRecommendation {
       content: content ?? this.content,
       moodBenefit: moodBenefit ?? this.moodBenefit,
       tags: tags ?? this.tags,
+      savedAt: savedAt ?? this.savedAt,
     );
   }
 
@@ -39,6 +43,11 @@ class ArticleRecommendation {
       tags: rawTags is List
           ? rawTags.whereType<String>().map((e) => e.trim()).toList()
           : const [],
+      savedAt: map['created_at'] != null 
+          ? DateTime.tryParse(map['created_at'] as String) 
+          : (map['savedAt'] != null 
+              ? DateTime.tryParse(map['savedAt'] as String) 
+              : null),
     );
   }
 
@@ -49,6 +58,7 @@ class ArticleRecommendation {
       'content': content,
       if (moodBenefit != null) 'moodBenefit': moodBenefit,
       if (tags.isNotEmpty) 'tags': tags,
+      if (savedAt != null) 'savedAt': savedAt!.toIso8601String(),
     };
   }
 }

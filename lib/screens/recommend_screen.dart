@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import '../data/models/article_recommendation.dart';
 import '../data/models/music_track.dart';
+import '../data/models/video_track.dart';
 import '../data/models/user_info.dart';
+import '../data/models/dream_entry.dart';
+import '../data/models/dream_analysis.dart';
+import '../data/local/local_database.dart';
 import '../data/services/gemini_service.dart';
 import '../data/services/youtube_audio_service.dart';
 import 'article_screen.dart';
 import 'song_player_screen.dart';
+import 'video_player_screen.dart';
 
 class RecommendScreen extends StatefulWidget {
   const RecommendScreen({super.key});
@@ -21,14 +26,12 @@ class _RecommendScreenState extends State<RecommendScreen> {
   bool _isLoading = true;
   String? _error;
 
-  String? _musicRecommendations;
   String? _musicInlineAnswer;
   List<MusicTrack> _musicTracks = [];
 
-  String? _videoRecommendations;
   String? _videoInlineAnswer;
+  List<VideoTrack> _videoTracks = [];
 
-  String? _exerciseRecommendations;
   String? _exerciseInlineAnswer;
 
   List<ArticleRecommendation> _articleRecommendations = [];
@@ -45,6 +48,10 @@ class _RecommendScreenState extends State<RecommendScreen> {
   // User information (emotional state, and other details) - can be updated from other screens or user input
   final UserInfo _userInfo = UserInfo.defaultValues();
 
+  // Latest dream and analysis for personalized recommendations
+  DreamEntry? _latestDream;
+  DreamAnalysis? _latestDreamAnalysis;
+
   @override
   void initState() {
     super.initState();
@@ -54,7 +61,44 @@ class _RecommendScreenState extends State<RecommendScreen> {
         setState(() => _hasTypedPrompt = hasText);
       }
     });
+    _loadLatestDreamAnalysis();
     _fetchRecommendations();
+  }
+
+  /// Load the latest dream entry and its analysis
+  Future<void> _loadLatestDreamAnalysis() async {
+    try {
+      final result = await LocalDatabase.instance.getLatestDreamWithAnalysis();
+      if (result != null && mounted) {
+        setState(() {
+          _latestDream = result['dream'] as DreamEntry?;
+          _latestDreamAnalysis = result['analysis'] as DreamAnalysis?;
+        });
+      }
+    } catch (e) {
+      print('Error loading latest dream analysis: $e');
+    }
+  }
+
+  /// Build context string that includes dream analysis for recommendations
+  String _buildDreamAnalysisContext(String? customPrompt) {
+    final buffer = StringBuffer();
+    
+    if (customPrompt != null && customPrompt.isNotEmpty) {
+      buffer.writeln(customPrompt);
+    }
+    
+    if (_latestDream != null && _latestDreamAnalysis != null) {
+      buffer.writeln('\nBased on my latest dream analysis:');
+      buffer.writeln('Dream Title: ${_latestDream!.dreamTitle}');
+      buffer.writeln('Dream Analysis: ${_latestDreamAnalysis!.analysisContent}');
+    } else if (_latestDream != null) {
+      buffer.writeln('\nBased on my latest dream:');
+      buffer.writeln('Dream Title: ${_latestDream!.dreamTitle}');
+      buffer.writeln('Dream Content: ${_latestDream!.dreamContent}');
+    }
+    
+    return buffer.toString().trim();
   }
 
   @override
@@ -87,9 +131,8 @@ class _RecommendScreenState extends State<RecommendScreen> {
       await Future.wait([
         _fetchMusic(customPrompt: effectivePrompt),
         _fetchArticles(customPrompt: effectivePrompt),
-        // _fetchVideo(),
+        _fetchVideo(customPrompt: effectivePrompt),
         // _fetchExercise(),
-        // _fetchArticle(),
       ]);
 
       if (!mounted) return;
@@ -114,11 +157,14 @@ class _RecommendScreenState extends State<RecommendScreen> {
       _error = null;
       _musicTracks = [];
       _musicInlineAnswer = null;
+      _videoTracks = [];
+      _videoInlineAnswer = null;
       _isArticleLoading = true;
       _articleRecommendations = [];
       _articleInlineAnswer = null;
       _articleError = null;
     });
+    await _loadLatestDreamAnalysis();
     _fetchRecommendations();
     await Future.delayed(const Duration(milliseconds: 400));
     _isPullRefreshing = false;
@@ -143,10 +189,14 @@ class _RecommendScreenState extends State<RecommendScreen> {
       _isLoading = true;
       _musicTracks = [];
       _musicInlineAnswer = null;
+      _videoTracks = [];
+      _videoInlineAnswer = null;
       _isArticleLoading = true;
       _articleRecommendations = [];
     });
 
+    // Reload latest dream analysis before fetching recommendations
+    await _loadLatestDreamAnalysis();
     await _fetchRecommendations(prompt: _activePrompt);
     setState(() => _isPromptSubmitting = false);
   }
@@ -174,10 +224,11 @@ class _RecommendScreenState extends State<RecommendScreen> {
       print(
         'Fetching music recommendations from Gemini... (attempt ${retryCount + 1}/$maxRetries)',
       );
+      final context = _buildDreamAnalysisContext(customPrompt);
       final geminiResult = await GeminiService.instance.recommendMusic(
         userInfo: _userInfo,
-        additionalContext: (customPrompt?.isNotEmpty ?? false)
-            ? customPrompt!
+        additionalContext: context.isNotEmpty
+            ? context
             : 'Based on my current emotional state and needs',
       );
 
@@ -220,7 +271,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _musicRecommendations = null;
         _musicTracks = [];
         _musicInlineAnswer = 'Unable to load recommendations';
         _error = e.toString().contains('temporarily unavailable')
@@ -263,39 +313,234 @@ class _RecommendScreenState extends State<RecommendScreen> {
     }
   }
 
-  /// Fetch video recommendations using Gemini service (placeholder for now)
-  Future<void> _fetchVideo() async {
+  /// Fetch video recommendations using Gemini service with retry logic
+  Future<void> _fetchVideo({int retryCount = 0, String? customPrompt}) async {
+    const maxRetries = 3;
+    const retryDelays = [1, 2, 4]; // seconds
+
+    // Set loading state on first attempt or manual retry
+    if (retryCount == 0) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
+
     try {
-      final result = await GeminiService.instance.recommendVideo(
+      // Step 1: Get video recommendations from Gemini
+      print(
+        'Fetching video recommendations from Gemini... (attempt ${retryCount + 1}/$maxRetries)',
+      );
+      final context = _buildDreamAnalysisContext(customPrompt);
+      final geminiResult = await GeminiService.instance.recommendVideo(
         userInfo: _userInfo,
-        additionalContext: 'Based on my current emotional state and needs',
+        additionalContext: context.isNotEmpty
+            ? context
+            : 'Based on my current emotional state and needs',
       );
 
       if (!mounted) return;
+
+      // Check if Gemini returned an error message instead of recommendations
+      if (_isErrorResponse(geminiResult)) {
+        if (retryCount < maxRetries) {
+          print(
+            'Gemini returned error, retrying in ${retryDelays[retryCount]}s...',
+          );
+          await Future.delayed(Duration(seconds: retryDelays[retryCount]));
+          return _fetchVideo(retryCount: retryCount + 1, customPrompt: customPrompt);
+        } else {
+          throw Exception(
+            'Gemini API is temporarily unavailable. Please try again later.',
+          );
+        }
+      }
+
+      print('=== Gemini Video Recommendations ===');
+      print(geminiResult);
+      print('====================================');
+
+      final tracks = _parseGeminiVideos(geminiResult);
+
+      if (!mounted) return;
+
       setState(() {
-        _videoRecommendations = result;
-        // Extract a preview/summary for inline display (first 100 chars)
-        _videoInlineAnswer = result.length > 100
-            ? '${result.substring(0, 100)}...'
-            : result;
+        _videoTracks = tracks;
+        _videoInlineAnswer = tracks.isNotEmpty
+            ? 'Found ${tracks.length} video(s) for your mood'
+            : 'No videos found from Gemini';
+        _error = null; // Clear any previous errors
+        _isLoading = false;
       });
+
+      // Fetch video details (ID, URL, thumbnails) in the background
+      _fetchVideoDetails(tracks);
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _videoRecommendations = null;
-        _videoInlineAnswer = 'Error loading video recommendations';
+        _videoTracks = [];
+        _videoInlineAnswer = 'Unable to load recommendations';
+        _error = e.toString().contains('temporarily unavailable')
+            ? 'Service temporarily unavailable. Tap to retry.'
+            : 'Error loading video recommendations. Tap to retry.';
       });
       print('Error fetching video: $e');
     }
   }
 
+  /// Strip markdown formatting from text (e.g., **[text](url)** -> text)
+  String _stripMarkdown(String text) {
+    // Remove markdown links: [text](url) -> text
+    text = text.replaceAllMapped(
+      RegExp(r'\[([^\]]+)\]\([^\)]+\)'),
+      (match) => match.group(1) ?? '',
+    );
+    // Remove bold/italic markers: **text** or *text* -> text
+    text = text.replaceAllMapped(
+      RegExp(r'\*{1,2}([^\*]+)\*{1,2}'),
+      (match) => match.group(1) ?? '',
+    );
+    // Remove any remaining markdown formatting
+    text = text.replaceAll(RegExp(r'[\[\]()*_`]'), '');
+    return text.trim();
+  }
+
+  /// Extract URL from markdown link if present: [text](url) -> url
+  String? _extractUrlFromMarkdown(String text) {
+    final markdownUrlMatch = RegExp(r'\[([^\]]+)\]\(([^\)]+)\)').firstMatch(text);
+    if (markdownUrlMatch != null) {
+      final url = markdownUrlMatch.group(2);
+      if (url != null && url.isNotEmpty) {
+        return url.trim();
+      }
+    }
+    return null;
+  }
+
+  /// Parse Gemini response to extract video recommendations
+  List<VideoTrack> _parseGeminiVideos(String response) {
+    final lines = response.split('\n');
+    final tracks = <VideoTrack>[];
+    final regex = RegExp(
+      r'''[""]?([^""]+)[""]?\s+(?:-|–|—|by)\s+([^-\n]+)''',
+      caseSensitive: false,
+    );
+
+    for (final rawLine in lines) {
+      var line = rawLine.trim();
+      if (line.isEmpty) continue;
+      line = line.replaceFirst(RegExp(r'^[-*•\d\.]+'), '').trim();
+
+      // Pattern: Title - Channel - reason
+      final pieces = line.split(' - ').map((e) => e.trim()).toList();
+      if (pieces.length >= 2 && pieces[0].isNotEmpty && pieces[1].isNotEmpty) {
+        final rawTitle = pieces[0];
+        final title = _stripMarkdown(rawTitle);
+        final channel = _stripMarkdown(pieces[1]);
+        final note = pieces.length > 2
+            ? _stripMarkdown(pieces.sublist(2).join(' - ').trim())
+            : null;
+        
+        // Extract video URL from markdown if present in title
+        final videoUrl = _extractUrlFromMarkdown(rawTitle);
+        
+        tracks.add(
+          VideoTrack(
+            title: title,
+            channel: channel,
+            note: note?.isEmpty == true ? null : note,
+            videoUrl: videoUrl,
+          ),
+        );
+        continue;
+      }
+
+      final match = regex.firstMatch(line);
+      if (match != null) {
+        final title = _stripMarkdown(match.group(1)?.trim() ?? '');
+        final channel = _stripMarkdown(match.group(2)?.trim() ?? '');
+        if (title.isNotEmpty && channel.isNotEmpty) {
+          tracks.add(VideoTrack(title: title, channel: channel));
+        }
+      }
+    }
+
+    return tracks;
+  }
+
+  /// Fetch video details (ID, URL, thumbnails) for tracks in the background
+  Future<void> _fetchVideoDetails(List<VideoTrack> tracks) async {
+    final youtubeService = YoutubeAudioService.instance;
+    final updatedTracks = <VideoTrack>[];
+
+    for (final track in tracks) {
+      if (track.videoId != null && track.thumbnailUrl != null) {
+        updatedTracks.add(track);
+        continue;
+      }
+
+      // Try to fetch video details with retry logic
+      Map<String, dynamic>? details;
+      int retryCount = 0;
+      const maxRetries = 2;
+
+      while (retryCount <= maxRetries && (details == null || details.isEmpty)) {
+        try {
+          details = await youtubeService.getVideoDetails(
+            track.buildSearchQuery(),
+          );
+          
+          if (details.isNotEmpty && details['videoId'] != null) {
+            break; // Success, exit retry loop
+          }
+          
+          // If no results and we have retries left, try again
+          if (retryCount < maxRetries) {
+            retryCount++;
+            // Wait a bit before retrying
+            await Future.delayed(Duration(milliseconds: 500 * retryCount));
+            details = null; // Reset to try again
+          }
+        } catch (e) {
+          print('Error fetching video details for "${track.title}": $e');
+          if (retryCount < maxRetries) {
+            retryCount++;
+            await Future.delayed(Duration(milliseconds: 500 * retryCount));
+          } else {
+            details = null;
+          }
+        }
+      }
+
+      if (mounted && details != null && details.isNotEmpty) {
+        updatedTracks.add(
+          track.copyWith(
+            videoId: details['videoId'],
+            videoUrl: details['videoUrl'],
+            thumbnailUrl: details['thumbnailUrl'] ?? track.thumbnailUrl,
+            channel: details['channel'] ?? track.channel,
+          ),
+        );
+      } else {
+        // Keep original track even if we couldn't fetch details
+        updatedTracks.add(track);
+      }
+    }
+
+    if (mounted && updatedTracks.length == tracks.length) {
+      setState(() {
+        _videoTracks = updatedTracks;
+      });
+    }
+  }
+
   /// Fetch exercise recommendations (placeholder for future implementation)
+  // ignore: unused_element
   Future<void> _fetchExercise() async {
     // TODO: Implement exercise recommendations
     // This will be implemented later with a specific Gemini prompt for exercises
     if (!mounted) return;
     setState(() {
-      _exerciseRecommendations = null;
       _exerciseInlineAnswer = 'Coming soon';
     });
   }
@@ -308,10 +553,11 @@ class _RecommendScreenState extends State<RecommendScreen> {
     });
 
     try {
+      final context = _buildDreamAnalysisContext(customPrompt);
       final articles = await GeminiService.instance.recommendArticles(
         userInfo: _userInfo,
         count: 4,
-        personalizationPrompt: customPrompt,
+        personalizationPrompt: context.isNotEmpty ? context : customPrompt,
       );
 
       if (!mounted) return;
@@ -345,6 +591,14 @@ class _RecommendScreenState extends State<RecommendScreen> {
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => ArticleScreen(article: article)));
+  }
+
+  void _openVideo(VideoTrack track) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => VideoPlayerScreen(track: track),
+      ),
+    );
   }
 
   List<MusicTrack> _parseGeminiTracks(String response) {
@@ -628,12 +882,23 @@ class _RecommendScreenState extends State<RecommendScreen> {
                           title: 'Video',
                           trailing: _isLoading
                               ? 'Loading…'
-                              : (_videoInlineAnswer ?? 'No recommendations'),
+                              : (_error ??
+                                    (_videoInlineAnswer ??
+                                        'No recommendations')),
+                          onTap: _error != null ? () => _fetchVideo() : null,
                         ),
                         const SizedBox(height: 12),
-                        _selectedCategory == _RecommendationCategory.video
-                            ? const _CardGrid()
-                            : const _CardRow(),
+                        _VideoGrid(
+                          isLoading: _isLoading,
+                          tracks: _videoTracks,
+                          onTrackTap: _openVideo,
+                          error: _error,
+                          onRetry: _error != null ? () => _fetchVideo() : null,
+                          layout:
+                              _selectedCategory == _RecommendationCategory.video
+                              ? VideoLayout.grid
+                              : VideoLayout.carousel,
+                        ),
                         const SizedBox(height: 20),
                       ],
                       if (_shouldShowCategory(
@@ -808,6 +1073,9 @@ class _SectionRow extends StatelessWidget {
 /// Handle showing the row of the music grid (Parent (1))
 enum MusicLayout { carousel, grid }
 
+/// Handle showing the row of the video grid
+enum VideoLayout { carousel, grid }
+
 class _MusicGrid extends StatelessWidget {
   final bool isLoading;
   final List<MusicTrack> tracks;
@@ -939,6 +1207,255 @@ class _MusicGrid extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _VideoGrid extends StatelessWidget {
+  final bool isLoading;
+  final List<VideoTrack> tracks;
+  final void Function(VideoTrack) onTrackTap;
+  final String? error;
+  final VoidCallback? onRetry;
+  final VideoLayout layout;
+
+  const _VideoGrid({
+    required this.isLoading,
+    required this.tracks,
+    required this.onTrackTap,
+    this.error,
+    this.onRetry,
+    this.layout = VideoLayout.carousel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading && tracks.isEmpty) {
+      return const SizedBox(
+        height: 120,
+        child: Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
+
+    if (error != null && tracks.isEmpty) {
+      return SizedBox(
+        height: 120,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                error!,
+                style: const TextStyle(color: Color(0xFF9AA5C4), fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+              if (onRetry != null) ...[
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('Retry'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFB7B9FF),
+                    foregroundColor: const Color(0xFF081944),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (tracks.isEmpty) {
+      return layout == VideoLayout.grid
+          ? GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.85,
+              children: List.generate(
+                4,
+                (index) => Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0D2357),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            )
+          : SizedBox(
+              height: 195,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: 4,
+                padding: EdgeInsets.zero,
+                separatorBuilder: (_, __) => const SizedBox(width: 16),
+                itemBuilder: (context, index) {
+                  return Container(
+                    width: 150,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0D2357),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Center(child: _PlayGlyph()),
+                  );
+                },
+              ),
+            );
+    }
+
+    if (layout == VideoLayout.grid) {
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 0.85,
+        ),
+        itemCount: tracks.length,
+        itemBuilder: (context, index) {
+          final track = tracks[index];
+          return _VideoTrackCard(track: track, onTap: () => onTrackTap(track));
+        },
+      );
+    }
+
+    return SizedBox(
+      height: 195,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: tracks.length,
+        padding: EdgeInsets.zero,
+        separatorBuilder: (_, __) => const SizedBox(width: 16),
+        itemBuilder: (context, index) {
+          final track = tracks[index];
+          return SizedBox(
+            width: 150,
+            child: _VideoTrackCard(
+              track: track,
+              onTap: () => onTrackTap(track),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _VideoTrackCard extends StatelessWidget {
+  final VideoTrack track;
+  final VoidCallback onTap;
+
+  const _VideoTrackCard({required this.track, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Ink(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF243B6B), Color(0xFF0D2357)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _VideoThumb(
+                  initials: track.title,
+                  thumbnailUrl: track.thumbnailUrl,
+                ),
+                const SizedBox(height: 8),
+
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        track.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          fontSize: 14,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      if (track.channel != null)
+                        Text(
+                          track.channel!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFFB4BEDA),
+                          ),
+                        ),
+
+                      if (track.note != null) ...[
+                        const SizedBox(height: 2),
+                        Flexible(
+                          child: Text(
+                            track.note!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Color(0xFF9AA5C4),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ),
+      ),
+    );
+  }
+}
+
+class _VideoThumb extends StatelessWidget {
+  final String initials;
+  final String? thumbnailUrl;
+
+  const _VideoThumb({required this.initials, this.thumbnailUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    final display = initials.isNotEmpty ? initials[0].toUpperCase() : '?';
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: AspectRatio(
+        aspectRatio: 1,
+        child: thumbnailUrl != null
+            ? Image.network(
+                thumbnailUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _Placeholder(display: display),
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return _Placeholder(display: display);
+                },
+              )
+            : _Placeholder(display: display),
       ),
     );
   }
@@ -1133,7 +1650,7 @@ class _ArticleCard extends StatelessWidget {
             children: [
               Text(
                 _formatArticlePreview(article.title),
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
@@ -1225,10 +1742,7 @@ class _MusicTrackCard extends StatelessWidget {
           ),
           borderRadius: BorderRadius.circular(18),
         ),
-        child: SizedBox(
-          height: 176,
-          width: 140,
-          child: Padding(
+        child: Padding(
             padding: const EdgeInsets.all(12.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1285,7 +1799,6 @@ class _MusicTrackCard extends StatelessWidget {
                 ),
               ],
             ),
-          ),
         ),
       ),
     );
