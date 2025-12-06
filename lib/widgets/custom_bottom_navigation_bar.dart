@@ -1,3 +1,4 @@
+import 'package:doctor_dream/constants/color_constant.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../screens/dream_diagnosis_screen.dart';
@@ -27,18 +28,18 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
 
   @override
   Widget build(BuildContext context) {
+    final Color activeColor = ColorConstant.primaryContainer;
+    final Color inactiveColor = ColorConstant.secondaryContainer;
+
     return Scaffold(
-            body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: Container(
-        color: Theme.of(context).colorScheme.primary,
+        color: ColorConstant.primary,
         child: SafeArea(
           child: BottomNavigationBar(
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            selectedItemColor: Theme.of(context).colorScheme.onPrimary,
-            unselectedItemColor: Theme.of(context).colorScheme.onPrimary,
+            backgroundColor: ColorConstant.primary,
+            selectedItemColor: activeColor,
+            unselectedItemColor: inactiveColor,
             currentIndex: _currentIndex,
             onTap: (index) => setState(() => _currentIndex = index),
             type: BottomNavigationBarType.fixed,
@@ -46,72 +47,52 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
             unselectedFontSize: 11,
             iconSize: 24,
             items: [
-            BottomNavigationBarItem(
-              icon: _CustomBottomBarIcon(
-                icon: SvgPicture.asset(
-                  "assets/icons/home_light.svg",
-                  colorFilter: ColorFilter.mode(
-                    Theme.of(context).colorScheme.onPrimary,
-                    BlendMode.srcIn,
-                  ),
+              BottomNavigationBarItem(
+                icon: _CustomBottomBarIcon(
+                  icon: Icon(Icons.book_rounded),
+                  selected: _currentIndex == 0,
+                  defaultIconColor: inactiveColor,
+                  selectedIconColor: ColorConstant.primary,
                 ),
-                selected: _currentIndex == 0,
+                label: "Journal",
               ),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: _CustomBottomBarIcon(
-                icon: SvgPicture.asset(
-                  "assets/icons/stethoscope_light.svg",
-                  colorFilter: ColorFilter.mode(
-                    Theme.of(context).colorScheme.onPrimary,
-                    BlendMode.srcIn,
-                  ),
+              BottomNavigationBarItem(
+                icon: _CustomBottomBarIcon(
+                  icon: Icon(Icons.monitor_heart_rounded),
+                  selected: _currentIndex == 1,
+                  defaultIconColor: inactiveColor,
+                  selectedIconColor: ColorConstant.primary,
                 ),
-                selected: _currentIndex == 1,
+                label: 'Diagnosis',
               ),
-              label: 'Diagnosis',
-            ),
-            BottomNavigationBarItem(
-              icon: _CustomBottomBarIcon(
-                icon: SvgPicture.asset(
-                  "assets/icons/compass_light.svg",
-                  colorFilter: ColorFilter.mode(
-                    Theme.of(context).colorScheme.onPrimary,
-                    BlendMode.srcIn,
-                  ),
+              BottomNavigationBarItem(
+                icon: _CustomBottomBarIcon(
+                  icon: Icon(Icons.lightbulb_rounded),
+                  selected: _currentIndex == 2,
+                  defaultIconColor: inactiveColor,
+                  selectedIconColor: ColorConstant.primary,
                 ),
-                selected: _currentIndex == 2,
+                label: 'Discover',
               ),
-              label: 'Recomm',
-            ),
-            BottomNavigationBarItem(
-              icon: _CustomBottomBarIcon(
-                icon: SvgPicture.asset(
-                  "assets/icons/chat_light.svg",
-                  colorFilter: ColorFilter.mode(
-                    Theme.of(context).colorScheme.onPrimary,
-                    BlendMode.srcIn,
-                  ),
+              BottomNavigationBarItem(
+                icon: _CustomBottomBarIcon(
+                  icon: Icon(Icons.forum_rounded),
+                  selected: _currentIndex == 3,
+                  defaultIconColor: inactiveColor,
+                  selectedIconColor: ColorConstant.primary,
                 ),
-                selected: _currentIndex == 3,
+                label: 'Talk',
               ),
-              label: 'Chat',
-            ),
-            BottomNavigationBarItem(
-              icon: _CustomBottomBarIcon(
-                icon: SvgPicture.asset(
-                  "assets/icons/user_light.svg",
-                  colorFilter: ColorFilter.mode(
-                    Theme.of(context).colorScheme.onPrimary,
-                    BlendMode.srcIn,
-                  ),
+              BottomNavigationBarItem(
+                icon: _CustomBottomBarIcon(
+                  icon: Icon(Icons.person_rounded),
+                  selected: _currentIndex == 4,
+                  defaultIconColor: inactiveColor,
+                  selectedIconColor: ColorConstant.primary,
                 ),
-                selected: _currentIndex == 4,
+                label: 'Me',
               ),
-              label: 'Profile',
-            ),
-          ],
+            ],
           ),
         ),
       ),
@@ -122,17 +103,37 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
 class _CustomBottomBarIcon extends StatelessWidget {
   final Widget icon;
   final bool selected;
+  final Color defaultIconColor;
+  final Color selectedIconColor;
 
-  const _CustomBottomBarIcon({required this.icon, required this.selected});
+  const _CustomBottomBarIcon({
+    required this.icon,
+    required this.selected,
+    required this.defaultIconColor,
+    required this.selectedIconColor,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final Color finalIconColor = selected
+        ? selectedIconColor
+        : defaultIconColor;
+
+    Widget coloredIcon = SizedBox(
+      width: 36,
+      height: 36,
+      child: ColorFiltered(
+        colorFilter: ColorFilter.mode(finalIconColor, BlendMode.srcIn),
+        child: icon,
+      ),
+    );
+
     if (selected) {
       return Container(
         width: 48,
         height: 48,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primaryContainer,
+          color: ColorConstant.primaryContainer,
           // background
           borderRadius: BorderRadius.circular(8),
         ),
@@ -148,23 +149,12 @@ class _CustomBottomBarIcon extends StatelessWidget {
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
-            // Inner circle
-            // Container(
-            //   width: 40,
-            //   height: 40,
-            //   decoration: BoxDecoration(
-            //     color: Colors.transparent,
-            //     border: Border.all(color: Colors.white, width: 1.5),
-            //     shape: BoxShape.circle,
-            //   ),
-            // ),
-            // Icon
-            SizedBox(width: 36, height: 36, child: icon),
+            coloredIcon,
           ],
         ),
       );
     } else {
-      return SizedBox(width: 36, height: 36, child: icon);
+      return coloredIcon;
     }
   }
 }
