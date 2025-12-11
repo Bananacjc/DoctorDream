@@ -172,7 +172,7 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
       );
     } catch (e) {
       initialMessage =
-          "Sorry, I couldn't start the conversation. Please try again next time.";
+          "I'm having trouble connecting to your subconscious right now. Please try again.";
     }
 
     if (!mounted) {
@@ -191,7 +191,8 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ChatScreen(initialMessage: initialMessage),
+        builder: (context) => ChatScreen(initialMessage: initialMessage,
+          isAiInitiated: true,),
       ),
     );
   }

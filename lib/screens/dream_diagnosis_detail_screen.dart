@@ -1,6 +1,9 @@
+import 'dart:developer';
+
 import 'package:doctor_dream/screens/chat_screen.dart';
 import 'package:doctor_dream/view_models/dream_diagnosis_detail_view_model.dart';
 import 'package:doctor_dream/widgets/custom_button.dart';
+import 'package:doctor_dream/widgets/custom_progress_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -52,7 +55,8 @@ class _DreamDiagnosisDetailScreenState
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ChatScreen(initialMessage: initialMessage),
+        builder: (context) => ChatScreen(initialMessage: initialMessage,
+          isAiInitiated: true,),
       ),
     );
   }
@@ -207,7 +211,7 @@ class _DreamDiagnosisDetailScreenState
                   child: CustomPillButton(
                     labelText: "Explore This Further",
                     icon: Icons.forum_rounded,
-                    onPressed: () => _isChatStarting
+                    onPressed: _isChatStarting
                         ? null
                         : () => _startChatDiscussion(
                             thisDiagnosis.diagnosisContent,
@@ -217,6 +221,24 @@ class _DreamDiagnosisDetailScreenState
               ),
             ],
           ),
+          if (_isChatStarting)
+            Positioned.fill(
+              child: CustomProgressIndicator(
+                icon: Icon(
+                  Icons.chat_bubble_rounded,
+                  size: 18,
+                  color: ColorConstant.onSurface,
+                ),
+                indicatorText: Text(
+                  "Connecting with the Subconscious...",
+                  style: GoogleFonts.robotoFlex(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: ColorConstant.onSurface,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

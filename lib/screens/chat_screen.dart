@@ -11,8 +11,13 @@ import '../data/models/chat_message.dart';
 
 class ChatScreen extends StatefulWidget {
   final String? initialMessage;
+  final bool isAiInitiated;
 
-  const ChatScreen({super.key, this.initialMessage});
+  const ChatScreen({
+    super.key,
+    this.initialMessage,
+    this.isAiInitiated = false,
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -27,11 +32,11 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<ChatMessage> _messages = [];
   bool _isSending = false;
   bool _isLoadingHistory = false;
-  
+
   // Session management
   String? _currentSessionId;
   List<ChatSession> _sessions = [];
-  
+
   // User information
   final UserInfo _userInfo = UserInfo.defaultValues();
 
@@ -44,9 +49,46 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _loadSessions();
-    
-    if (widget.initialMessage != null) {
-      _startNewSession(withMessage: widget.initialMessage);
+    _initChat();
+  }
+
+  Future<void> _initChat() async {
+    await _loadSessions();
+
+    if (widget.initialMessage != null && widget.isAiInitiated) {
+      await _handleIncomingGreeting(widget.initialMessage!);
+    } else if (!widget.isAiInitiated) {
+      await _startNewSession(withMessage: widget.initialMessage);
+    }
+  }
+
+  Future<void> _handleIncomingGreeting(String greetingText) async {
+    String sesstionTitle = "Dream Insight";
+
+    if (greetingText.length > 20) {
+      sesstionTitle = '${greetingText.substring(0, 20)}...';
+    }
+
+    await _createNewSessionIfNeeded(sesstionTitle);
+    final sessionId = _currentSessionId!;
+
+    final assistantMsg = ChatMessage(
+      id: const Uuid().v4(),
+      sessionId: sessionId,
+      text: greetingText,
+      isUser: false,
+      createdAt: DateTime.now()
+    );
+
+    if (mounted) {
+      setState(() {
+        _messages.add(assistantMsg);
+      });
+      _scrollToBottom();
+
+      await LocalDatabase.instance.saveChatMessage(assistantMsg);
+
+      await _loadSessions();
     }
   }
 
@@ -75,7 +117,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     final messages = await LocalDatabase.instance.fetchChatMessages(sessionId);
-    
+
     if (mounted) {
       setState(() {
         _messages.addAll(messages);
@@ -90,7 +132,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _currentSessionId = null;
       _messages.clear();
     });
-    
+
     if (withMessage != null) {
       _textController.text = withMessage;
       _sendMessage();
@@ -101,7 +143,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_currentSessionId == null) {
       final newSessionId = const Uuid().v4();
       final now = DateTime.now();
-      
+
       // Use first message as title (truncated)
       String title = firstMessageText;
       if (title.length > 30) {
@@ -116,7 +158,7 @@ class _ChatScreenState extends State<ChatScreen> {
       );
 
       await LocalDatabase.instance.createChatSession(session);
-      
+
       setState(() {
         _currentSessionId = newSessionId;
         _sessions.insert(0, session); // Add to top of list
@@ -157,7 +199,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
       // Save to DB
       await LocalDatabase.instance.saveChatMessage(userMsg);
-      
+
       // 3. Get Gemini response
       final replyText = await GeminiService.instance.chat(
         text,
@@ -178,24 +220,26 @@ class _ChatScreenState extends State<ChatScreen> {
           _messages.add(assistantMsg);
         });
         await LocalDatabase.instance.saveChatMessage(assistantMsg);
-        
+
         // Update session list order (since updated_at changed)
-        _loadSessions(); 
+        _loadSessions();
       }
-      
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
         setState(() {
-          _messages.add(ChatMessage(
-            id: const Uuid().v4(),
-            sessionId: _currentSessionId ?? '',
-            text: "Sorry, I had trouble responding just now. Please try again.",
-            isUser: false,
-            createdAt: DateTime.now(),
-          ));
+          _messages.add(
+            ChatMessage(
+              id: const Uuid().v4(),
+              sessionId: _currentSessionId ?? '',
+              text:
+                  "Sorry, I had trouble responding just now. Please try again.",
+              isUser: false,
+              createdAt: DateTime.now(),
+            ),
+          );
         });
       }
     } finally {
@@ -269,9 +313,11 @@ class _ChatScreenState extends State<ChatScreen> {
           child: Column(
             children: [
               Expanded(
-                child: _isLoadingHistory 
-                  ? const Center(child: CircularProgressIndicator(color: Colors.white))
-                  : (_messages.isEmpty)
+                child: _isLoadingHistory
+                    ? const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      )
+                    : (_messages.isEmpty)
                     ? _buildEmptyState()
                     : ListView.builder(
                         controller: _scrollController,
@@ -349,7 +395,11 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.history_edu_rounded, color: accent, size: 28),
+                    const Icon(
+                      Icons.history_edu_rounded,
+                      color: accent,
+                      size: 28,
+                    ),
                     const SizedBox(width: 16),
                     const Expanded(
                       child: Text(
@@ -362,7 +412,11 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.add_circle_outline_rounded, color: accent, size: 28),
+                      icon: const Icon(
+                        Icons.add_circle_outline_rounded,
+                        color: accent,
+                        size: 28,
+                      ),
                       tooltip: 'New Chat',
                       onPressed: () {
                         Navigator.pop(context); // Close drawer
@@ -372,18 +426,24 @@ class _ChatScreenState extends State<ChatScreen> {
                   ],
                 ),
               ),
-              
+
               Expanded(
                 child: _sessions.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.chat_bubble_outline, size: 48, color: Colors.white.withOpacity(0.2)),
+                            Icon(
+                              Icons.chat_bubble_outline,
+                              size: 48,
+                              color: Colors.white.withOpacity(0.2),
+                            ),
                             const SizedBox(height: 16),
                             Text(
                               'No chat history yet',
-                              style: TextStyle(color: Colors.white.withOpacity(0.5)),
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.5),
+                              ),
                             ),
                           ],
                         ),
@@ -394,7 +454,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         itemBuilder: (context, index) {
                           final session = _sessions[index];
                           final isSelected = session.id == _currentSessionId;
-                          
+
                           return Dismissible(
                             key: Key(session.id),
                             direction: DismissDirection.startToEnd,
@@ -402,30 +462,47 @@ class _ChatScreenState extends State<ChatScreen> {
                               alignment: Alignment.centerLeft,
                               padding: const EdgeInsets.only(left: 20),
                               color: Colors.redAccent.withOpacity(0.2),
-                              child: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                              child: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.redAccent,
+                              ),
                             ),
                             confirmDismiss: (direction) async {
-                               // Optional: Add confirmation dialog
-                               return true;
+                              // Optional: Add confirmation dialog
+                              return true;
                             },
                             onDismissed: (direction) async {
-                               await LocalDatabase.instance.deleteChatSession(session.id);
-                               _loadSessions();
-                               if (_currentSessionId == session.id) {
-                                 _startNewSession();
-                               }
+                              await LocalDatabase.instance.deleteChatSession(
+                                session.id,
+                              );
+                              _loadSessions();
+                              if (_currentSessionId == session.id) {
+                                _startNewSession();
+                              }
                             },
                             child: Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
-                                color: isSelected ? accent.withOpacity(0.15) : Colors.transparent,
+                                color: isSelected
+                                    ? accent.withOpacity(0.15)
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(12),
-                                border: isSelected ? Border.all(color: accent.withOpacity(0.3)) : null,
+                                border: isSelected
+                                    ? Border.all(color: accent.withOpacity(0.3))
+                                    : null,
                               ),
                               child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 4,
+                                ),
                                 leading: CircleAvatar(
-                                  backgroundColor: isSelected ? accent : Colors.white10,
+                                  backgroundColor: isSelected
+                                      ? accent
+                                      : Colors.white10,
                                   radius: 18,
                                   child: Icon(
                                     Icons.chat_bubble_rounded,
@@ -436,15 +513,21 @@ class _ChatScreenState extends State<ChatScreen> {
                                 title: Text(
                                   session.title,
                                   style: TextStyle(
-                                    color: isSelected ? Colors.white : Colors.white70,
-                                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : Colors.white70,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
                                     fontSize: 15,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 subtitle: Text(
-                                  DateFormat('MMM d, h:mm a').format(session.updatedAt),
+                                  DateFormat(
+                                    'MMM d, h:mm a',
+                                  ).format(session.updatedAt),
                                   style: TextStyle(
                                     color: Colors.white38,
                                     fontSize: 12,
@@ -506,7 +589,10 @@ class _ChatScreenState extends State<ChatScreen> {
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [accent.withOpacity(0.15), accent.withOpacity(0.05)],
+                    colors: [
+                      accent.withOpacity(0.15),
+                      accent.withOpacity(0.05),
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -607,11 +693,13 @@ class _ChatScreenState extends State<ChatScreen> {
     final isUser = message.isUser;
     final bubbleColor = isUser ? accent : Colors.white;
     final textColor = isUser ? navy : const Color(0xFF333333);
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isUser) ...[
@@ -622,7 +710,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             const SizedBox(width: 8),
           ],
-          
+
           Flexible(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -631,8 +719,12 @@ class _ChatScreenState extends State<ChatScreen> {
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(20),
                   topRight: const Radius.circular(20),
-                  bottomLeft: isUser ? const Radius.circular(20) : const Radius.circular(4),
-                  bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(20),
+                  bottomLeft: isUser
+                      ? const Radius.circular(20)
+                      : const Radius.circular(4),
+                  bottomRight: isUser
+                      ? const Radius.circular(4)
+                      : const Radius.circular(20),
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -665,7 +757,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
           ),
-          
+
           if (isUser) ...[
             const SizedBox(width: 8),
             const CircleAvatar(
