@@ -19,33 +19,32 @@ class CustomFilter<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: ColorConstant.secondary,
+      color: ColorConstant.inverseSurface,
       borderRadius: BorderRadius.circular(16),
       child: Theme(
         data: Theme.of(context).copyWith(
           textTheme: Theme.of(context).textTheme.apply(
-            bodyColor: ColorConstant.onSecondary,
-            displayColor: ColorConstant.onSecondary,
+            bodyColor: ColorConstant.onInverseSurface,
+            displayColor: ColorConstant.onInverseSurface,
           ),
           popupMenuTheme: PopupMenuThemeData(
             textStyle: GoogleFonts.robotoFlex(),
-            color: ColorConstant.secondary,
+            color: ColorConstant.inverseSurface,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: ColorConstant.onSecondary)
-            ), ),
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: ColorConstant.onInverseSurface),
+            ),
+          ),
         ),
         child: PopupMenuButton<T>(
           offset: const Offset(0, 45),
-          elevation: 4,
+          elevation: 6,
           icon:
               icon ??
-              SvgPicture.asset(
-                "assets/icons/filter_light.svg",
-                colorFilter: ColorFilter.mode(
-                  ColorConstant.onSecondary,
-                  BlendMode.srcIn,
-                ),
+              Icon(
+                Icons.tune_rounded,
+                color: ColorConstant.onInverseSurface,
+                size: 24,
               ),
           onSelected: (T value) {
             onFilterSelected(value);

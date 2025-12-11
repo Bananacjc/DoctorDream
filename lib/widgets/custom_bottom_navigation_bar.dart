@@ -28,16 +28,16 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
 
   @override
   Widget build(BuildContext context) {
-    final Color activeColor = ColorConstant.primaryContainer;
-    final Color inactiveColor = ColorConstant.secondaryContainer;
+    final Color activeColor = ColorConstant.primary;
+    final Color inactiveColor = ColorConstant.onSurfaceVariant;
 
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: Container(
-        color: ColorConstant.primary,
+        color: ColorConstant.surface,
         child: SafeArea(
           child: BottomNavigationBar(
-            backgroundColor: ColorConstant.primary,
+            backgroundColor: ColorConstant.surface,
             selectedItemColor: activeColor,
             unselectedItemColor: inactiveColor,
             currentIndex: _currentIndex,
@@ -52,7 +52,7 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
                   icon: Icon(Icons.book_rounded),
                   selected: _currentIndex == 0,
                   defaultIconColor: inactiveColor,
-                  selectedIconColor: ColorConstant.primary,
+                  selectedIconColor: ColorConstant.onPrimaryContainer,
                 ),
                 label: "Journal",
               ),
@@ -61,7 +61,7 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
                   icon: Icon(Icons.monitor_heart_rounded),
                   selected: _currentIndex == 1,
                   defaultIconColor: inactiveColor,
-                  selectedIconColor: ColorConstant.primary,
+                  selectedIconColor: ColorConstant.onPrimaryContainer,
                 ),
                 label: 'Diagnosis',
               ),
@@ -70,7 +70,7 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
                   icon: Icon(Icons.lightbulb_rounded),
                   selected: _currentIndex == 2,
                   defaultIconColor: inactiveColor,
-                  selectedIconColor: ColorConstant.primary,
+                  selectedIconColor: ColorConstant.onPrimaryContainer,
                 ),
                 label: 'Discover',
               ),
@@ -79,7 +79,7 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
                   icon: Icon(Icons.forum_rounded),
                   selected: _currentIndex == 3,
                   defaultIconColor: inactiveColor,
-                  selectedIconColor: ColorConstant.primary,
+                  selectedIconColor: ColorConstant.onPrimaryContainer,
                 ),
                 label: 'Talk',
               ),
@@ -88,7 +88,7 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
                   icon: Icon(Icons.person_rounded),
                   selected: _currentIndex == 4,
                   defaultIconColor: inactiveColor,
-                  selectedIconColor: ColorConstant.primary,
+                  selectedIconColor: ColorConstant.onPrimaryContainer,
                 ),
                 label: 'Me',
               ),
@@ -130,24 +130,19 @@ class _CustomBottomBarIcon extends StatelessWidget {
 
     if (selected) {
       return Container(
-        width: 48,
-        height: 48,
+        width: 65,
+        height: 38,
         decoration: BoxDecoration(
           color: ColorConstant.primaryContainer,
-          // background
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Stack(
           alignment: Alignment.center,
           children: [
             // Outer rounded square
-            Container(
+            SizedBox(
               width: 32,
               height: 32,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(6),
-              ),
             ),
             coloredIcon,
           ],

@@ -1,11 +1,10 @@
-import 'package:doctor_dream/data/models/dream_diagnosis.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../constants/color_constant.dart';
 import '../data/models/dream_diagnosis.dart';
 import '../screens/dream_diagnosis_detail_screen.dart';
-import '../screens/dream_diagnosis_screen.dart';
 
 class DreamDiagnosisItem extends StatelessWidget {
   final DreamDiagnosis dreamDiagnosis;
@@ -20,6 +19,7 @@ class DreamDiagnosisItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
+      borderRadius: BorderRadius.circular(24),
       onTap: () async {
         final result = await Navigator.push(
           context,
@@ -34,60 +34,101 @@ class DreamDiagnosisItem extends StatelessWidget {
         }
       },
       child: Container(
-        padding: EdgeInsets.all(16),
-        margin: EdgeInsets.all(16),
+        width: double.infinity,
+        padding: EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.secondaryContainer,
-          borderRadius: BorderRadius.circular(8),
+          color: ColorConstant.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: ColorConstant.tertiary.withAlpha(50),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: ColorConstant.shadow.withAlpha(60),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header with Icon
             Row(
               children: [
-                Column(
-                  children: [
-                    Text(
-                      "Dream Diagnosis",
-                      style: GoogleFonts.robotoFlex(
-                        color: Theme.of(context).colorScheme.onSecondaryContainer,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                Container(
+                  padding: EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: ColorConstant.tertiaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.auto_awesome_rounded,
+                    color: ColorConstant.onTertiaryContainer,
+                    size: 14,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Latest Insight",
+                        style: GoogleFonts.robotoFlex(
+                          color: ColorConstant.tertiary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.start,
-                      maxLines: 1,
-                    ),
-                  ],
-                )
+                      Text(
+                        DateFormat(
+                          "MMMM dd, yyyy",
+                        ).format(dreamDiagnosis.createdAt),
+                        style: GoogleFonts.robotoFlex(
+                          color: ColorConstant.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
-
-            Divider(),
-            SizedBox(
-              child: Text(
-                dreamDiagnosis.diagnosisContent,
-                style: GoogleFonts.robotoFlex(
-                  color: Theme.of(context).colorScheme.onSecondaryContainer,
-                  fontSize: 12,
-                ),
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.justify,
-                maxLines: 2,
-              ),
-            ),
+            SizedBox(height: 24),
             Text(
-              DateFormat(
-                "hh:mm MMMM dd, yyyy",
-              ).format(dreamDiagnosis.createdAt),
+              dreamDiagnosis.diagnosisContent,
               style: GoogleFonts.robotoFlex(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSecondaryContainer.withAlpha(150),
-                fontSize: 14,
+                color: ColorConstant.onSurface,
+                fontSize: 18,
+                height: 1.5,
+                fontWeight: FontWeight.w400,
               ),
-              textAlign: TextAlign.end,
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.left,
+            ),
+            SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  "Read Full Analysis",
+                  style: GoogleFonts.robotoFlex(
+                    color: ColorConstant.primary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Icon(
+                  Icons.arrow_forward_rounded,
+                  color: ColorConstant.primary,
+                  size: 16,
+                ),
+              ],
             ),
           ],
         ),

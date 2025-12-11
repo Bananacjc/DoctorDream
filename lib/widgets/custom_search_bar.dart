@@ -25,29 +25,32 @@ class _CustomSearchBarState extends State<CustomSearchBar> {
           minHeight: size.height,
           minWidth: size.width * 0.6,
         ),
-        backgroundColor: WidgetStatePropertyAll(ColorConstant.secondary),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadiusGeometry.circular(16),
+          ),
+        ),
+        backgroundColor: WidgetStatePropertyAll(ColorConstant.inverseSurface),
         trailing: [
-          SvgPicture.asset(
-            "assets/icons/search_light.svg",
-            colorFilter: ColorFilter.mode(
-              ColorConstant.onSecondary,
-              BlendMode.srcIn,
-            ),
+          Icon(
+            Icons.search_rounded,
+            color: ColorConstant.onInverseSurface,
+            size: 24,
           ),
         ],
         textStyle: WidgetStatePropertyAll(
           GoogleFonts.robotoFlex(
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.normal,
-            color: ColorConstant.onSecondary,
+            color: ColorConstant.onInverseSurface,
           ),
         ),
-        hintText: "Find your previous dream...",
+        hintText: "Search your memories...",
         hintStyle: WidgetStatePropertyAll(
           GoogleFonts.robotoFlex(
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.normal,
-            color: Theme.of(context).colorScheme.onSecondary.withAlpha(90),
+            color: ColorConstant.onInverseSurface.withAlpha(90),
           ),
         ),
         onChanged: (value) {

@@ -1,6 +1,4 @@
 import 'dart:developer';
-
-import 'package:doctor_dream/screens/dream_detail_screen.dart';
 import 'package:doctor_dream/screens/dream_edit_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -24,107 +22,137 @@ class _DreamReviewScreenState extends State<DreamReviewScreen> {
   final DreamReviewViewModel _viewModel = DreamReviewViewModel();
   final ScrollController _dreamEntriesController = ScrollController();
 
+  @override
+  void initState() {
+    super.initState();
+    _viewModel.loadDreams();
+  }
+
+  @override
+  void dispose() {
+    _dreamEntriesController.dispose();
+    _viewModel.dispose();
+    super.dispose();
+  }
+
   Widget _buildCustomFilter() {
-    return CustomFilter<DreamFilterOption>(
-      onFilterSelected: (DreamFilterOption selected) async {
-        switch (selected) {
-          case DreamFilterOption.newest:
-            _viewModel.setSortOrder(SortOrder.newest);
-            break;
-          case DreamFilterOption.oldest:
-            _viewModel.setSortOrder(SortOrder.oldest);
-            break;
-          case DreamFilterOption.dateRange:
-            DateTimeRange<DateTime>? pickedRange = await _showDatePicker();
-            if (pickedRange != null) {
-              _viewModel.filterByDateRange(pickedRange.start, pickedRange.end);
-            }
-            break;
-          case DreamFilterOption.clear:
-            _viewModel.clearFilters();
-            break;
-        }
-      },
-      filterOptions: [
-        PopupMenuItem(
-          enabled: false,
-          child: Text(
-            'Sort By',
-            style: GoogleFonts.robotoFlex(
-              color: ColorConstant.onSecondary,
-              fontWeight: FontWeight.bold,
+    return SizedBox(
+      height: 40,
+      child: CustomFilter<DreamFilterOption>(
+        onFilterSelected: (DreamFilterOption selected) async {
+          switch (selected) {
+            case DreamFilterOption.newest:
+              _viewModel.setSortOrder(SortOrder.newest);
+              break;
+            case DreamFilterOption.oldest:
+              _viewModel.setSortOrder(SortOrder.oldest);
+              break;
+            case DreamFilterOption.dateRange:
+              DateTimeRange<DateTime>? pickedRange = await _showDatePicker();
+              if (pickedRange != null) {
+                _viewModel.filterByDateRange(
+                  pickedRange.start,
+                  pickedRange.end,
+                );
+              }
+              break;
+            case DreamFilterOption.clear:
+              _viewModel.clearFilters();
+              break;
+          }
+        },
+        filterOptions: [
+          PopupMenuItem(
+            enabled: false,
+            child: Text(
+              'Organize Your Thoughts',
+              style: GoogleFonts.robotoFlex(
+                color: ColorConstant.onInverseSurface,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-        ),
-        PopupMenuItem(
-          value: DreamFilterOption.newest,
-          child: Row(
-            children: [
-              Icon(
-                Icons.arrow_upward,
-                size: 18,
-                color: ColorConstant.onSecondary,
-              ),
-              SizedBox(width: 8),
-              Text(
-                'Most Recent',
-                style: GoogleFonts.robotoFlex(color: ColorConstant.onSecondary),
-              ),
-            ],
+          PopupMenuItem(
+            value: DreamFilterOption.newest,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.arrow_upward_rounded,
+                  size: 18,
+                  color: ColorConstant.onInverseSurface,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'The Latest Dreams',
+                  style: GoogleFonts.robotoFlex(
+                    color: ColorConstant.onInverseSurface,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        PopupMenuItem(
-          value: DreamFilterOption.oldest,
-          child: Row(
-            children: [
-              Icon(
-                Icons.arrow_downward,
-                size: 18,
-                color: ColorConstant.onSecondary,
-              ),
-              SizedBox(width: 8),
-              Text(
-                'Most Oldest',
-                style: GoogleFonts.robotoFlex(color: ColorConstant.onSecondary),
-              ),
-            ],
+          PopupMenuItem(
+            value: DreamFilterOption.oldest,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.arrow_downward_rounded,
+                  size: 18,
+                  color: ColorConstant.onInverseSurface,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'Way Back When',
+                  style: GoogleFonts.robotoFlex(
+                    color: ColorConstant.onInverseSurface,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        PopupMenuDivider(),
-        PopupMenuItem(
-          value: DreamFilterOption.dateRange,
-          child: Row(
-            children: [
-              Icon(
-                Icons.calendar_today,
-                size: 18,
-                color: ColorConstant.onSecondary,
-              ),
-              SizedBox(width: 8),
-              Text(
-                'Select Date Range',
-                style: GoogleFonts.robotoFlex(color: ColorConstant.onSecondary),
-              ),
-            ],
+          PopupMenuDivider(),
+          PopupMenuItem(
+            value: DreamFilterOption.dateRange,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.calendar_today_rounded,
+                  size: 18,
+                  color: ColorConstant.onInverseSurface,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'Pick a Date Range',
+                  style: GoogleFonts.robotoFlex(
+                    color: ColorConstant.onInverseSurface,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        PopupMenuDivider(),
-        PopupMenuItem(
-          value: DreamFilterOption.clear,
-          child: Row(
-            children: [
-              Icon(Icons.filter_alt_off,
-              size: 18,
-              color: ColorConstant.error,),
-              SizedBox(width: 8),
-              Text(
-                'Clear Filters',
-                style: GoogleFonts.robotoFlex(color: ColorConstant.error,
-                    fontWeight: FontWeight.bold),
-              )
-            ],
-          )),
-      ],
+          PopupMenuDivider(),
+          PopupMenuItem(
+            value: DreamFilterOption.clear,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.filter_alt_off_rounded,
+                  size: 18,
+                  color: ColorConstant.errorContainer,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'See Everything!',
+                  style: GoogleFonts.robotoFlex(
+                    color: ColorConstant.errorContainer,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -153,11 +181,12 @@ class _DreamReviewScreenState extends State<DreamReviewScreen> {
 
   Widget _showNoDreamEntriesDialog() {
     return CustomPromptDialog(
-      title: "Nothing here...",
-      description: "You haven't record any dream, how about try one now?",
+      title: "Your Page is Blank!",
+      icon: Icons.lightbulb_outline_rounded,
+      description: "It's empty! Let's capture your first sleep story.",
       actions: [
         CustomTextButton(
-          buttonText: "Add one now!",
+          buttonText: "Start Writing!",
           type: ButtonType.confirm,
           onPressed: () async {
             final result = await Navigator.push(
@@ -174,23 +203,18 @@ class _DreamReviewScreenState extends State<DreamReviewScreen> {
     );
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _viewModel.loadDreams();
-  }
-
-  @override
-  void dispose() {
-    _dreamEntriesController.dispose();
-    _viewModel.dispose();
-    super.dispose();
+  Future<void> _navigateToDreamEditScreen() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const DreamEditScreen()),
+    );
+    if (result == true) {
+      _viewModel.loadDreams();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final Size size = MediaQuery.of(context).size;
-
     return ListenableBuilder(
       listenable: _viewModel,
       builder: (context, child) {
@@ -199,147 +223,162 @@ class _DreamReviewScreenState extends State<DreamReviewScreen> {
             centerTitle: true,
             title: Column(
               children: [
-                Text("Dreams", style: Theme.of(context).textTheme.titleLarge),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.book_rounded,
+                      color: ColorConstant.primary,
+                      size: 24,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      "Your Dream Journal",
+                      style: GoogleFonts.robotoFlex(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: ColorConstant.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
                 Text(
-                  "Your subconscious journal",
+                  "Discover the secrets in your sleep.",
                   style: GoogleFonts.robotoFlex(
-                    fontSize: 14,
+                    fontSize: 16,
                     fontWeight: FontWeight.normal,
-                    color: Theme.of(context).colorScheme.onPrimary,
+                    color: ColorConstant.onSurfaceVariant.withAlpha(205),
                   ),
                 ),
               ],
             ),
           ),
-          body: LayoutBuilder(
-            builder: (context, constraint) {
-              if (_viewModel.isLoading) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              if (_viewModel.hasNoDreams) {
-                return _showNoDreamEntriesDialog();
-              }
-
-              return SingleChildScrollView(
-                physics: _viewModel.dreams.isEmpty
-                    ? const NeverScrollableScrollPhysics()
-                    : const AlwaysScrollableScrollPhysics(),
-                child: Container(
-                  padding: EdgeInsets.all(8),
-                  height: constraint.maxHeight,
-                  width: size.width,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
+          body: Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                // Search bar and filter
+                Padding(
+                  padding: EdgeInsets.only(bottom: 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Search bar and filter
-                      Padding(
-                        padding: EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              flex: 7,
-                              child: CustomSearchBar(
-                                onSearch: (query) {
-                                  _viewModel.searchDreams(query);
-                                },
-                              ),
-                            ),
-                            Expanded(flex: 1, child: SizedBox()),
-                            Expanded(flex: 2, child: _buildCustomFilter()),
-                          ],
+                      Expanded(
+                        flex: 7,
+                        child: CustomSearchBar(
+                          onSearch: (query) {
+                            _viewModel.searchDreams(query);
+                          },
                         ),
                       ),
-                      // Dream entries
-                      if (_viewModel.dreams.isEmpty) ...[
-                        Expanded(
-                          child: Column(
+                      SizedBox(width: 12),
+                      Expanded(flex: 2, child: _buildCustomFilter()),
+                    ],
+                  ),
+                ),
+                if (_viewModel.isLoading)
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            color: ColorConstant.primary,
+                          ),
+                          SizedBox(height: 16),
+                          Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                Icons.search_off,
-                                size: 64,
-                                color: ColorConstant.onPrimary,
+                                Icons.hourglass_empty_rounded,
+                                color: ColorConstant.onSurface,
+                                size: 18,
                               ),
-                              SizedBox(height: 16),
+                              SizedBox(width: 8),
                               Text(
-                                "No dreams found matching your search "
-                                "criteria",
+                                "Brewing up your memories...",
                                 style: GoogleFonts.robotoFlex(
-                                  color: ColorConstant.onPrimary,
-                                  fontSize: 16,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: ColorConstant.onSurface,
                                 ),
                               ),
                             ],
                           ),
+                        ],
+                      ),
+                    ),
+                  )
+                else if (_viewModel.hasNoDreams)
+                  Expanded(child: Center(child: _showNoDreamEntriesDialog()))
+                // Dream entries
+                else if (_viewModel.dreams.isEmpty) ...[
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.sentiment_dissatisfied_outlined,
+                          size: 64,
+                          color: ColorConstant.onPrimary,
                         ),
-                      ] else ...[
-                        SizedBox(height: 16),
-                        Container(
-                          margin: EdgeInsets.only(top: 0),
-                          width: size.width,
-                          height: size.height * 0.60,
-                          decoration: BoxDecoration(
-                            color: ColorConstant.primaryContainer,
-                          ),
-                          child: RawScrollbar(
-                            controller: _dreamEntriesController,
-                            crossAxisMargin: 4,
-                            thumbColor: ColorConstant.secondaryContainer,
-                            child: ListView.builder(
-                              controller: _dreamEntriesController,
-                              padding: EdgeInsets.zero,
-                              itemCount: _viewModel.dreams.length,
-                              itemBuilder: (context, i) {
-                                return DreamEntryItem(
-                                  dreamEntry: _viewModel.dreams[i],
-                                  onRefresh: () => _viewModel.loadDreams(),
-                                );
-                              },
-                            ),
+                        SizedBox(height: 8),
+                        Text(
+                          "Hmm, those dreams are hiding!",
+                          style: GoogleFonts.robotoFlex(
+                            color: ColorConstant.onPrimary,
+                            fontSize: 18,
                           ),
                         ),
-                        SizedBox(height: 16),
-                        Align(
-                          alignment: Alignment.bottomRight,
-                          child: SizedBox(
-                            width: 48,
-                            height: 48,
-                            child: ElevatedButton(
-                              onPressed: () async {
-                                log("Add dream");
-                                final result = await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const DreamEditScreen(),
-                                  ),
-                                );
-                                if (result == true) {
-                                  _viewModel.loadDreams();
-                                }
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: ColorConstant.primaryContainer,
-                                foregroundColor:
-                                    ColorConstant.onPrimaryContainer,
-                                padding: EdgeInsets.zero,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: Icon(Icons.add, size: 24),
-                            ),
+                        SizedBox(height: 8),
+                        Text(
+                          "Try a different filter or tap 'See Everything' to "
+                              "reset.",
+                          style: GoogleFonts.robotoFlex(
+                            color: ColorConstant.onPrimary.withAlpha(180),
+                            fontSize: 14,
                           ),
                         ),
                       ],
-                    ],
+                    ),
+                  ),
+                ] else
+                  Expanded(
+                    child: RawScrollbar(
+                      controller: _dreamEntriesController,
+                      thumbColor: ColorConstant.onSurface,
+                      radius: Radius.circular(8),
+                      child: ListView.builder(
+                        controller: _dreamEntriesController,
+                        padding: EdgeInsets.zero,
+                        itemCount: _viewModel.dreams.length,
+                        itemBuilder: (context, i) {
+                          return DreamEntryItem(
+                            dreamEntry: _viewModel.dreams[i],
+                            onRefresh: () => _viewModel.loadDreams(),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                // Add dream button
+                SizedBox(
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 16),
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: CustomPillButton(
+                        onPressed: _navigateToDreamEditScreen,
+                        labelText: "Record Your Dream Now",
+                        icon: Icons.cloud_queue_rounded,
+                      ),
+                    ),
                   ),
                 ),
-              );
-            },
+              ],
+            ),
           ),
         );
       },

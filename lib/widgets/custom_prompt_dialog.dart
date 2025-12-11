@@ -6,6 +6,7 @@ import '../constants/color_constant.dart';
 
 class CustomPromptDialog extends StatelessWidget {
   final String title;
+  final IconData? icon;
   final String description;
   final bool isClosable;
   final List<CustomTextButton> actions;
@@ -13,6 +14,7 @@ class CustomPromptDialog extends StatelessWidget {
   const CustomPromptDialog({
     super.key,
     required this.title,
+    this.icon,
     required this.description,
     this.isClosable = false,
     required this.actions,
@@ -20,22 +22,20 @@ class CustomPromptDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Size size = MediaQuery.of(context).size;
     return Material(
       type: MaterialType.transparency,
       child: Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                margin: EdgeInsets.symmetric(vertical: 16),
-                padding: EdgeInsets.all(16),
+                padding: EdgeInsets.all(24),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(32),
-                  color: ColorConstant.secondary,
+                  borderRadius: BorderRadius.circular(24),
+                  color: ColorConstant.inverseSurface,
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -46,13 +46,37 @@ class CustomPromptDialog extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          title,
-                          style: GoogleFonts.robotoFlex(
-                            color: ColorConstant.onSecondary,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Flexible(
+                          child: icon != null
+                              ? Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      icon,
+                                      color: ColorConstant.onInverseSurface,
+                                      size: 26,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        title,
+                                        style: GoogleFonts.robotoFlex(
+                                          color: ColorConstant.onInverseSurface,
+                                          fontSize: 26,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Text(
+                                  title,
+                                  style: GoogleFonts.robotoFlex(
+                                    color: ColorConstant.onInverseSurface,
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                         ),
                         isClosable
                             ? IconButton(
@@ -60,10 +84,9 @@ class CustomPromptDialog extends StatelessWidget {
                                   Navigator.pop(context, false);
                                 },
                                 icon: Icon(
-                                  Icons.close,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSecondaryContainer,
+                                  Icons.close_rounded,
+                                  color: ColorConstant.onInverseSurface,
+                                  size: 20,
                                 ),
                               )
                             : Container(),
@@ -74,23 +97,22 @@ class CustomPromptDialog extends StatelessWidget {
                     Text(
                       description,
                       style: GoogleFonts.robotoFlex(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSecondaryContainer,
-                        fontSize: 20,
+                        color: ColorConstant.onInverseSurface.withAlpha(230),
+                        fontSize: 18,
                       ),
                       textAlign: TextAlign.left,
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 21),
                     // Actions
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: List.generate(actions.length, (index) {
                         return Expanded(
                           child: Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 4),
-                              child: actions[index]),
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: actions[index],
+                          ),
                         );
                       }),
                     ),

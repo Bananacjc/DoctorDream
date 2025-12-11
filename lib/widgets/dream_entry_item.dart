@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../constants/color_constant.dart';
 import '../data/models/dream_entry.dart';
 import '../screens/dream_detail_screen.dart';
 
@@ -14,6 +15,7 @@ class DreamEntryItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
+      borderRadius: BorderRadius.circular(20),
       onTap: () async {
         final result = await Navigator.push(
           context,
@@ -27,50 +29,56 @@ class DreamEntryItem extends StatelessWidget {
         }
       },
       child: Container(
-        padding: EdgeInsets.all(16),
-        margin: EdgeInsets.all(16),
+        padding: EdgeInsets.all(20),
+        margin: EdgeInsets.symmetric(horizontal: 0, vertical: 8),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.secondaryContainer,
-          borderRadius: BorderRadius.circular(8),
+          color: ColorConstant.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Title
             Text(
               dreamEntry.dreamTitle,
               style: GoogleFonts.robotoFlex(
-                color: Theme.of(context).colorScheme.onSecondaryContainer,
-                fontSize: 16,
+                color: ColorConstant.onPrimaryContainer,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.start,
               maxLines: 1,
             ),
-            Divider(),
+
+            // Date
+            Text(
+              DateFormat("MMM dd, yyyy - hh:mm a").format(dreamEntry.updatedAt),
+              style: GoogleFonts.robotoFlex(
+                color: ColorConstant.onSurfaceVariant.withAlpha(153),
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.start,
+            ),
+
+            Divider(
+              height: 16,
+              color: ColorConstant.outlineVariant.withAlpha(77),
+            ),
             SizedBox(
               child: Text(
                 dreamEntry.dreamContent,
                 style: GoogleFonts.robotoFlex(
-                  color: Theme.of(context).colorScheme.onSecondaryContainer,
-                  fontSize: 12,
+                  color: ColorConstant.onPrimaryContainer,
+                  fontSize: 14,
                 ),
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.justify,
                 maxLines: 2,
               ),
             ),
-            Text(
-              DateFormat("hh:mm MMMM dd, yyyy").format(dreamEntry.updatedAt),
-              style: GoogleFonts.robotoFlex(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSecondaryContainer.withAlpha(150),
-                fontSize: 14,
-              ),
-              textAlign: TextAlign.end,
-            ),
+
           ],
         ),
       ),

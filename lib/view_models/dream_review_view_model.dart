@@ -25,6 +25,7 @@ class DreamReviewViewModel extends ChangeNotifier {
   Future<void> loadDreams() async {
     _isLoading = true;
     notifyListeners();
+    _allDreams = [];
 
     try {
       _allDreams = await LocalDatabase.instance.fetchDreamEntries();

@@ -1,6 +1,7 @@
 import 'dart:developer';
 
 import 'package:doctor_dream/view_models/dream_detail_view_model.dart';
+import 'package:doctor_dream/widgets/custom_progress_indicator.dart';
 import 'package:doctor_dream/widgets/custom_prompt_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -24,6 +25,7 @@ class DreamDetailScreen extends StatefulWidget {
 
 class _DreamDetailScreenState extends State<DreamDetailScreen> {
   final _viewModel = DreamDetailViewModel();
+  bool _isChatStarting = false;
 
   @override
   void initState() {
@@ -37,25 +39,52 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
     super.dispose();
   }
 
+  Future<void> _navigateToDreamEditScreen(DreamEntry dreamEntry) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DreamEditScreen(dreamEntry: dreamEntry),
+      ),
+    );
+
+    if (result == true && mounted) {
+      Navigator.pop(context, true);
+    }
+  }
+
+  Future<void> _deleteDreamEntry(DreamEntry dreamEntry) async {
+    final confirm = await _showDeleteConfirmDialog();
+    if (!confirm) return;
+
+    final success = await _viewModel.deleteDream(dreamEntry.dreamID);
+
+    if (!mounted) return;
+
+    if (success && mounted) {
+      Navigator.pop(context, true);
+    }
+  }
+
   Future<bool> _showDeleteConfirmDialog() async {
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => CustomPromptDialog(
-        title: 'Delete this Dream?',
+        title: 'Delete Dream?',
+        icon: Icons.delete_forever_rounded,
         isClosable: true,
         description:
-            "Once deleted, you won't be able to "
-            "get it back.",
+            "Once deleted, your dream will be gone forever. Are you sure you "
+            "want to let it go?",
         actions: [
           CustomTextButton(
-            buttonText: 'Cancel',
+            buttonText: 'Wait, Cancel',
             type: ButtonType.cancel,
             onPressed: () {
               Navigator.pop(context, false);
             },
           ),
           CustomTextButton(
-            buttonText: "Delete",
+            buttonText: "Yes, Delete It",
             type: ButtonType.warning,
             onPressed: () {
               Navigator.pop(context, true);
@@ -67,23 +96,50 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
     return result ?? false;
   }
 
+  Future<bool> _analyzeDream(DreamEntry dreamEntry) async {
+    if (_viewModel.existingAnalysis != null) {
+      _buildAnalysisWindow(_viewModel.existingAnalysis!);
+      return true;
+    }
+
+    final confirm = await _showAnalysisConfirmDialog();
+    if (!confirm) return false;
+
+    final analysis = await _viewModel.analyzeDream(
+      dreamEntry.dreamTitle,
+      dreamEntry.dreamContent,
+    );
+
+    if (analysis != null) {
+      await _viewModel.saveDreamAnalysis(dreamEntry.dreamID, analysis);
+      await _viewModel.loadDreamAnalysis(dreamEntry.dreamID);
+      _buildAnalysisWindow(analysis);
+      return true;
+    }
+
+    return false;
+  }
+
   Future<bool> _showAnalysisConfirmDialog() async {
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => CustomPromptDialog(
-        title: 'Analyze this dream?',
+        title: 'Ready for Insight?',
+        icon: Icons.psychology_alt_rounded,
         isClosable: true,
-        description: "You can analyze this dream to know what it means to you.",
+        description:
+            "Let me help you uncover the hidden meaning and "
+            "emotional patterns in this dream.",
         actions: [
           CustomTextButton(
-            buttonText: 'Cancel',
+            buttonText: 'Not Yet',
             type: ButtonType.cancel,
             onPressed: () {
               Navigator.pop(context, false);
             },
           ),
           CustomTextButton(
-            buttonText: "Analyze",
+            buttonText: "Analyze Now",
             type: ButtonType.confirm,
             onPressed: () {
               Navigator.pop(context, true);
@@ -101,6 +157,10 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
   ) async {
     Navigator.pop(modalContext);
 
+    setState(() {
+      _isChatStarting = true;
+    });
+
     final dummyUserInfo = UserInfo.defaultValues();
     String initialMessage;
 
@@ -111,11 +171,23 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
         analysis: analysis,
       );
     } catch (e) {
-      initialMessage = "Sorry, I couldn't start the conversation.";
+      initialMessage =
+          "Sorry, I couldn't start the conversation. Please try again next time.";
     }
 
-    if (!mounted) return;
-    log("Navigating to ChatScreen with message: $initialMessage");
+    if (!mounted) {
+      if (_isChatStarting) {
+        setState(() {
+          _isChatStarting = false;
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      _isChatStarting = false;
+    });
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -129,9 +201,9 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
-      backgroundColor: ColorConstant.primary,
+      backgroundColor: ColorConstant.surfaceContainerHigh,
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.6,
         minChildSize: 0.6,
@@ -145,10 +217,10 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
               children: [
                 Center(
                   child: Container(
-                    width: 40,
+                    width: 60,
                     height: 5,
                     decoration: BoxDecoration(
-                      color: ColorConstant.secondaryContainer,
+                      color: ColorConstant.onSurfaceVariant,
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
@@ -158,35 +230,20 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      "Dream Analysis",
+                      "Your Dream Insight",
                       style: GoogleFonts.robotoFlex(
-                        fontSize: 20,
+                        fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: ColorConstant.onPrimary,
+                        color: ColorConstant.onSurface,
                       ),
                     ),
                     // Buttons (talk about it)
                     SizedBox(
                       height: 48,
-                      child: ElevatedButton.icon(
+                      child: CustomPillButton(
                         onPressed: () => _startChatDiscussion(context, result),
-                        icon: Icon(Icons.chat_outlined, size: 24),
-                        label: Text(
-                          "Let's talk about this",
-                          style: GoogleFonts.robotoFlex(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: ColorConstant.onPrimary,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: ColorConstant.primaryContainer,
-                          foregroundColor: ColorConstant.onPrimaryContainer,
-                          padding: EdgeInsets.symmetric(horizontal: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
+                        labelText: "Let's Chat",
+                        icon: Icons.forum_rounded,
                       ),
                     ),
                   ],
@@ -200,29 +257,29 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
                       styleSheet: MarkdownStyleSheet(
                         p: GoogleFonts.robotoFlex(
                           fontSize: 16,
-                          color: ColorConstant.onPrimary,
+                          color: ColorConstant.onSurface,
                         ),
                         h1: GoogleFonts.robotoFlex(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: ColorConstant.onPrimary,
+                          color: ColorConstant.primary,
                         ),
                         h2: GoogleFonts.robotoFlex(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: ColorConstant.onPrimary,
+                          color: ColorConstant.primary,
                         ),
                         h3: GoogleFonts.robotoFlex(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: ColorConstant.onPrimary,
+                          color: ColorConstant.primary,
                         ),
                         strong: GoogleFonts.robotoFlex(
                           fontWeight: FontWeight.bold,
-                          color: ColorConstant.primaryContainer,
+                          color: ColorConstant.primary,
                         ),
                         listBullet: GoogleFonts.robotoFlex(
-                          color: ColorConstant.onPrimary,
+                          color: ColorConstant.onSurface,
                         ),
                       ),
                     ),
@@ -238,224 +295,150 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    Size size = MediaQuery.of(context).size;
     DreamEntry thisEntry = widget.dreamEntry;
+
     return ListenableBuilder(
       listenable: _viewModel,
       builder: (context, child) {
         //TODO: add layout builder for fetching process
+        final bool isAnyLoading =
+            _isChatStarting ||
+            _viewModel.isFetchingAnalysis ||
+            _viewModel.isAnalyzing;
         return Scaffold(
-          appBar: AppBar(scrolledUnderElevation: 0),
-          body: Container(
-            margin: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-            height: size.height,
-            width: size.width,
-            decoration: BoxDecoration(color: ColorConstant.primary),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                // Title and date
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        thisEntry.dreamTitle,
-                        style: GoogleFonts.robotoFlex(
-                          color: ColorConstant.onPrimary.withAlpha(150),
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        DateFormat(
-                          "hh:mm MMMM dd, yyyy",
-                        ).format(thisEntry.updatedAt),
-                        style: GoogleFonts.robotoFlex(
-                          color: ColorConstant.onPrimary.withAlpha(150),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Divider
-                Divider(color: ColorConstant.onPrimary.withAlpha(150)),
-                // Padding
-                SizedBox(height: 8),
-                // Content
-                Expanded(
-                  child: RawScrollbar(
-                    thumbColor: ColorConstant.secondaryContainer,
-                    radius: Radius.circular(16),
-                    thumbVisibility: true,
-                    padding: EdgeInsets.only(left: 4),
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        thisEntry.dreamContent,
-                        textAlign: TextAlign.justify,
-                        style: GoogleFonts.robotoFlex(
-                          fontSize: 18,
-                          color: ColorConstant.onPrimary,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                // Padding
-                SizedBox(height: 16),
-                // Buttons (edit, delete, analyze)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          appBar: AppBar(
+            scrolledUnderElevation: 0,
+            backgroundColor: ColorConstant.surface,
+          ),
+          body: Stack(
+            children: [
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        SizedBox(
-                          width: 48,
-                          height: 48,
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              final result = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      DreamEditScreen(dreamEntry: thisEntry),
-                                ),
-                              );
-
-                              if (result == true && context.mounted) {
-                                Navigator.pop(context, true);
-                              }
-                              log("Edit dream");
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: ColorConstant.primaryContainer,
-                              foregroundColor: ColorConstant.onPrimaryContainer,
-                              padding: EdgeInsets.zero,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                    // Title and date
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            thisEntry.dreamTitle,
+                            style: GoogleFonts.robotoFlex(
+                              color: ColorConstant.onSurface,
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
                             ),
-                            child: Icon(Icons.edit, size: 24),
                           ),
-                        ),
-                        SizedBox(width: 16),
-                        SizedBox(
-                          width: 48,
-                          height: 48,
-                          child: ElevatedButton(
-                            onPressed: _viewModel.isDeleting
-                                ? null
-                                : () async {
-                                    final confirm =
-                                        await _showDeleteConfirmDialog();
-                                    if (!confirm) return;
-
-                                    final success = await _viewModel
-                                        .deleteDream(thisEntry.dreamID);
-
-                                    if (!context.mounted) return;
-
-                                    if (success && context.mounted) {
-                                      Navigator.pop(context, true);
-                                    }
-
-                                    log("Delete dream");
-                                  },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: ColorConstant.primaryContainer,
-                              foregroundColor: ColorConstant.onPrimaryContainer,
-                              padding: EdgeInsets.zero,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                          Text(
+                            DateFormat(
+                              "EEE, MMM dd, yyyy 'at' hh:mm a",
+                            ).format(thisEntry.updatedAt),
+                            style: GoogleFonts.robotoFlex(
+                              color: ColorConstant.onSurfaceVariant,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
                             ),
-                            child: Icon(Icons.delete, size: 24),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    SizedBox(
-                      height: 48,
-                      child: ElevatedButton.icon(
-                        onPressed: _viewModel.isAnalyzing
-                            ? null
-                            : () async {
-                                if (_viewModel.existingAnalysis != null) {
-                                  _buildAnalysisWindow(
-                                    _viewModel.existingAnalysis!,
-                                  );
-                                  return;
-                                }
-
-                                final confirm =
-                                    await _showAnalysisConfirmDialog();
-
-                                if (!confirm) return;
-
-                                final result = await _viewModel.analyzeDream(
-                                  thisEntry.dreamTitle,
-                                  thisEntry.dreamContent,
-                                );
-
-                                if (result != null) {
-                                  await _viewModel.saveDreamAnalysis(
-                                    widget.dreamEntry.dreamID,
-                                    result,
-                                  );
-                                  await _viewModel.loadDreamAnalysis(
-                                    widget.dreamEntry.dreamID,
-                                  );
-                                  _buildAnalysisWindow(result);
-                                  log("Analysis saved and loaded");
-                                }
-                              },
-                        icon: _viewModel.isAnalyzing
-                            ? Container(
-                                width: 24,
-                                height: 24,
-                                padding: EdgeInsets.all(2),
-                                child: const CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: ColorConstant.onPrimary,
-                                ),
-                              )
-                            : Icon(
-                                _viewModel.existingAnalysis != null
-                                    ? Icons.visibility_outlined
-                                    : Icons.analytics_outlined,
-                                size: 24,
+                    // Divider
+                    Divider(color: ColorConstant.outlineVariant),
+                    // Content
+                    Expanded(
+                      child: RawScrollbar(
+                        thumbColor: ColorConstant.onSurfaceVariant,
+                        radius: Radius.circular(8),
+                        thumbVisibility: true,
+                        padding: EdgeInsets.only(left: 4),
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          child: Text(
+                            thisEntry.dreamContent,
+                            textAlign: TextAlign.justify,
+                            style: GoogleFonts.robotoFlex(
+                              fontSize: 17,
+                              height: 1.5,
+                              color: ColorConstant.onSurface,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Buttons (edit, delete, analyze)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16, bottom: 24),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              CustomIconActionButton(
+                                icon: Icons.edit_note_rounded,
+                                onPressed: () =>
+                                    _navigateToDreamEditScreen(thisEntry),
                               ),
-                        label: Text(
-                          _viewModel.isAnalyzing
-                              ? "Analyzing..."
-                              : (_viewModel.existingAnalysis != null)
-                              ? "View Analysis"
-                              : "Analyze Dream",
-                          style: GoogleFonts.robotoFlex(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: ColorConstant.onPrimary,
+                              SizedBox(width: 16),
+                              CustomIconActionButton(
+                                icon: Icons.delete_forever_rounded,
+                                onPressed: () => _deleteDreamEntry(thisEntry),
+                                backgroundColor: ColorConstant.errorContainer,
+                                foregroundColor: ColorConstant.onErrorContainer,
+                              ),
+                            ],
                           ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: ColorConstant.primaryContainer,
-                          foregroundColor: ColorConstant.onPrimaryContainer,
-                          padding: EdgeInsets.symmetric(horizontal: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                          CustomPillButton(
+                            icon: _viewModel.existingAnalysis != null
+                                ? Icons.visibility_rounded
+                                : Icons.psychology_alt_rounded,
+                            labelText: _viewModel.existingAnalysis != null
+                                ? "View Insight"
+                                : "Get Insight",
+                            onPressed: () =>
+                                (_viewModel.isAnalyzing ||
+                                    _viewModel.isDeleting)
+                                ? null
+                                : _analyzeDream(thisEntry),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              if (isAnyLoading)
+                Positioned.fill(
+                  child: CustomProgressIndicator(
+                    icon: Icon(
+                      _isChatStarting
+                          ? Icons.chat_bubble_rounded
+                          : _viewModel.isFetchingAnalysis
+                          ? Icons.monitor_heart_rounded
+                          : _viewModel.isAnalyzing
+                          ? Icons.lightbulb_rounded
+                          : Icons.delete_forever_rounded,
+                      size: 18,
+                      color: ColorConstant.onSurface,
+                    ),
+                    indicatorText: Text(
+                      _isChatStarting
+                          ? "Connecting with the Subconscious..."
+                          : _viewModel.isFetchingAnalysis
+                          ? "Checking for past insights..."
+                          : _viewModel.isAnalyzing
+                          ? "What could this dream mean..."
+                          : "Removing this dream...",
+                      style: GoogleFonts.robotoFlex(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: ColorConstant.onSurface,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         );
       },

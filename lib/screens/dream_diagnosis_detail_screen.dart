@@ -1,5 +1,6 @@
 import 'package:doctor_dream/screens/chat_screen.dart';
 import 'package:doctor_dream/view_models/dream_diagnosis_detail_view_model.dart';
+import 'package:doctor_dream/widgets/custom_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -22,8 +23,13 @@ class DreamDiagnosisDetailScreen extends StatefulWidget {
 class _DreamDiagnosisDetailScreenState
     extends State<DreamDiagnosisDetailScreen> {
   final _viewModel = DreamDiagnosisDetailViewModel();
+  bool _isChatStarting = false;
 
   Future<void> _startChatDiscussion(String diagnosis) async {
+    setState(() {
+      _isChatStarting = true;
+    });
+
     final dummyUserInfo = UserInfo.defaultValues();
     String initialMessage;
 
@@ -33,10 +39,15 @@ class _DreamDiagnosisDetailScreenState
         diagnosis: diagnosis,
       );
     } catch (e) {
-      initialMessage = "Sorry, I couldn't start the conversation";
+      initialMessage =
+          "I'm having trouble connecting to your subconscious right now. Please try again.";
     }
 
     if (!mounted) return;
+
+    setState(() {
+      _isChatStarting = false;
+    });
 
     Navigator.push(
       context,
@@ -49,119 +60,164 @@ class _DreamDiagnosisDetailScreenState
   MarkdownBody _showResultInMarkdown(String result) {
     return MarkdownBody(
       data: result,
+      selectable: true,
       styleSheet: MarkdownStyleSheet(
-        p: GoogleFonts.robotoFlex(fontSize: 16, color: ColorConstant.onPrimary),
+        p: GoogleFonts.robotoFlex(
+          fontSize: 16,
+          height: 1.6,
+          color: ColorConstant.onSurface.withAlpha(225),
+        ),
         h1: GoogleFonts.robotoFlex(
           fontSize: 24,
           fontWeight: FontWeight.bold,
-          color: ColorConstant.onPrimary,
+          color: ColorConstant.tertiary,
         ),
         h2: GoogleFonts.robotoFlex(
           fontSize: 20,
           fontWeight: FontWeight.bold,
-          color: ColorConstant.onPrimary,
+          color: ColorConstant.tertiary,
         ),
         h3: GoogleFonts.robotoFlex(
           fontSize: 18,
           fontWeight: FontWeight.bold,
-          color: ColorConstant.onPrimary,
+          color: ColorConstant.tertiary,
         ),
         strong: GoogleFonts.robotoFlex(
           fontWeight: FontWeight.bold,
-          color: ColorConstant.primaryContainer,
+          color: ColorConstant.onPrimaryContainer,
         ),
-        listBullet: GoogleFonts.robotoFlex(color: ColorConstant.onPrimary),
+        listBullet: GoogleFonts.robotoFlex(
+          fontSize: 16,
+          color: ColorConstant.tertiary,
+        ),
+        blockquote: GoogleFonts.robotoFlex(
+          color: ColorConstant.onSurfaceVariant,
+          fontStyle: FontStyle.italic,
+        ),
+        blockquoteDecoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(color: ColorConstant.tertiary, width: 4),
+          ),
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    Size size = MediaQuery.of(context).size;
     DreamDiagnosis thisDiagnosis = widget.dreamDiagnosis;
 
     return Scaffold(
-      appBar: AppBar(scrolledUnderElevation: 0),
-      body: Container(
-        margin: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-        height: size.height,
-        width: size.width,
-        decoration: BoxDecoration(color: ColorConstant.primary),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Dream Diagnosis",
-                        style: GoogleFonts.robotoFlex(
-                          color: ColorConstant.onPrimary.withAlpha(150),
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+      backgroundColor: ColorConstant.surface,
+      appBar: AppBar(
+        backgroundColor: ColorConstant.surface,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_rounded, color: ColorConstant.onSurface),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          "Insight Details",
+          style: GoogleFonts.robotoFlex(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: ColorConstant.onSurface,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              Expanded(
+                child: RawScrollbar(
+                  thumbColor: ColorConstant.onSurfaceVariant,
+                  radius: Radius.circular(8),
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: ColorConstant.tertiary.withAlpha(30),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                Icons.auto_awesome_rounded,
+                                color: ColorConstant.tertiary,
+                                size: 24,
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Deep Dive Analysis",
+                                  style: GoogleFonts.robotoFlex(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: ColorConstant.onSurface,
+                                  ),
+                                ),
+                                Text(
+                                  DateFormat(
+                                    "MMMM dd, yyyy 'at' hh:mm a",
+                                  ).format(thisDiagnosis.createdAt),
+                                  style: GoogleFonts.robotoFlex(
+                                    color: ColorConstant.onSurfaceVariant,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                      ),
-                      Text(
-                        DateFormat(
-                          "hh:mm MMMM dd, yyyy",
-                        ).format(thisDiagnosis.createdAt),
-                        style: GoogleFonts.robotoFlex(
-                          color: ColorConstant.onPrimary.withAlpha(150),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      onPressed: () =>
-                          _startChatDiscussion(thisDiagnosis.diagnosisContent),
-                      icon: Icon(Icons.chat_outlined, size: 24),
-                      label: Text(
-                        "Let's talk about this",
-                        style: GoogleFonts.robotoFlex(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: ColorConstant.onPrimary,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: ColorConstant.primaryContainer,
-                        foregroundColor: ColorConstant.onPrimaryContainer,
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
+                        SizedBox(height: 24),
+                        Divider(color: ColorConstant.outlineVariant),
+                        SizedBox(height: 24),
+
+                        _showResultInMarkdown(thisDiagnosis.diagnosisContent),
+
+                        SizedBox(height: 100),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-            Divider(color: ColorConstant.onPrimary.withAlpha(150)),
-            SizedBox(height: 8),
-            Expanded(
-              child: RawScrollbar(
-                thumbColor: ColorConstant.secondaryContainer,
-                radius: Radius.circular(16),
-                thumbVisibility: true,
-                padding: EdgeInsets.only(left: 4),
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(horizontal: 8),
-                  child: _showResultInMarkdown(thisDiagnosis.diagnosisContent),
                 ),
               ),
-            ),
-          ],
-        ),
+              Container(
+                padding: EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: ColorConstant.surface,
+                  boxShadow: [
+                    BoxShadow(
+                      color: ColorConstant.shadow.withAlpha(50),
+                      blurRadius: 20,
+                      offset: Offset(0, -5),
+                    ),
+                  ],
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: CustomPillButton(
+                    labelText: "Explore This Further",
+                    icon: Icons.forum_rounded,
+                    onPressed: () => _isChatStarting
+                        ? null
+                        : () => _startChatDiscussion(
+                            thisDiagnosis.diagnosisContent,
+                          ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

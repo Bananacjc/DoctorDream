@@ -19,7 +19,6 @@ class DreamDiagnosisScreen extends StatefulWidget {
 
 class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
   final DreamDiagnosisViewModel _viewModel = DreamDiagnosisViewModel();
-  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -30,17 +29,18 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
   @override
   void dispose() {
     _viewModel.dispose();
-    _scrollController.dispose();
     super.dispose();
   }
 
   Widget _showNoDiagnosisDialog() {
     return CustomPromptDialog(
-      title: "Nothing here...",
-      description: "You haven't do any diagnosis, how about try one now?",
+      title: "Quiet Mind?",
+      description:
+          "We haven't explored your patterns yet. Ready to see what your dreams are saying?",
+      icon: Icons.nightlight_round,
       actions: [
         CustomTextButton(
-          buttonText: "Do one now!",
+          buttonText: "Discover My Patterns",
           type: ButtonType.confirm,
           onPressed: () async {
             final result = await _viewModel.diagnose();
@@ -59,12 +59,13 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
 
   Widget _showNotEnoughDreamDialog() {
     return CustomPromptDialog(
-      title: "I need to know more...",
+      title: "Gathering Stardust",
       description:
-          "You don't have enough dreams to do diagnosis, how about add more now?",
+          "I need just a few more dreams to find the hidden threads. Keep journaling!",
+      icon: Icons.hourglass_top_rounded,
       actions: [
         CustomTextButton(
-          buttonText: "Add one now!",
+          buttonText: "Write a Dream",
           type: ButtonType.confirm,
           onPressed: () async {
             final result = await Navigator.push(
@@ -81,126 +82,156 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
     );
   }
 
+  Future<void> _diagnoseDreams() async {
+    final result = await _viewModel.diagnose();
+    if (result != null) {
+      await _viewModel.saveDreamDiagnosis(result);
+      await _viewModel.loadDiagnosis();
+    }
+    _viewModel.loadDiagnosis();
+  }
+
   @override
   Widget build(BuildContext context) {
-    Size size = MediaQuery.of(context).size;
     return ListenableBuilder(
       listenable: _viewModel,
       builder: (context, child) {
         return Scaffold(
+          backgroundColor: ColorConstant.surface,
           appBar: AppBar(
+            backgroundColor: ColorConstant.surface,
             centerTitle: true,
             title: Column(
               children: [
-                Text(
-                  "Diagnosis",
-                  style: Theme.of(context).textTheme.titleLarge,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.monitor_heart_rounded,
+                      color: ColorConstant.primary,
+                      size: 24,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      "Your Inner Compass",
+                      style: GoogleFonts.robotoFlex(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: ColorConstant.onSurface,
+                      ),
+                    ),
+                  ],
                 ),
                 Text(
-                  "Your mental health helper",
+                  "Understanding the whispers of your mind",
                   style: GoogleFonts.robotoFlex(
-                    fontSize: 14,
+                    fontSize: 16,
                     fontWeight: FontWeight.normal,
-                    color: Theme.of(context).colorScheme.onPrimary,
+                    color: ColorConstant.onSurfaceVariant.withAlpha(205),
                   ),
                 ),
               ],
             ),
           ),
-          body: LayoutBuilder(
-            builder: (context, constraint) {
-              if (_viewModel.isLoading) {
-                return const Center(
-                  child: CircularProgressIndicator(
-                    color: ColorConstant.onPrimary,
-                  ),
-                );
-              }
+          body: Padding(
+            padding: EdgeInsets.all(16),
+            child: LayoutBuilder(
+              builder: (context, constraint) {
+                if (_viewModel.isLoading) {
+                  return Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            color: ColorConstant.primary,
+                          ),
+                          SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.hourglass_empty_rounded,
+                                color: ColorConstant.onSurface,
+                                size: 18,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                "Connecting the dots...",
+                                style: GoogleFonts.robotoFlex(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: ColorConstant.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
 
-              if (_viewModel.hasNoDiagnosis && _viewModel.hasEnoughDreams) {
-                return _showNoDiagnosisDialog();
-              }
+                if (_viewModel.hasNoDiagnosis && _viewModel.hasEnoughDreams) {
+                  return Expanded(
+                    child: Center(child: _showNoDiagnosisDialog()),
+                  );
+                }
 
-              if (!_viewModel.hasEnoughDreams) {
-                return _showNotEnoughDreamDialog();
-              }
+                if (!_viewModel.hasEnoughDreams) {
+                  return Expanded(
+                    child: Center(child: _showNotEnoughDreamDialog()),
+                  );
+                }
 
-              return SingleChildScrollView(
-                child: Container(
-                  padding: EdgeInsets.all(8),
-                  height: constraint.maxHeight,
-                  width: size.width,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      Container(
-                        margin: EdgeInsets.only(top: 0),
-                        width: size.width,
-                        decoration: BoxDecoration(
-                          color: ColorConstant.primaryContainer,
-                        ),
+                return Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Spacer(),
+                    Icon(
+                      Icons.psychology_alt_rounded,
+                      size: 64,
+                      color: ColorConstant.tertiary.withAlpha(200),
+                    ),
+                    SizedBox(height: 24),
+
+                    if (_viewModel.diagnosis.isNotEmpty)
+                      Hero(
+                        tag: "diagnosis_card",
                         child: DreamDiagnosisItem(
-                          dreamDiagnosis: _viewModel.diagnosis[0],
+                          dreamDiagnosis: _viewModel.diagnosis.first,
                           onRefresh: () => _viewModel.loadDiagnosis(),
                         ),
                       ),
-                      SizedBox(height: 16),
-                      Align(
-                        alignment: Alignment.bottomCenter,
-                        child: SizedBox(
-                          height: 48,
-                          child: ElevatedButton.icon(
-                            onPressed: _viewModel.isDiagnosing
-                                ? null
-                                : () async {
-                                    final result = await _viewModel.diagnose();
-
-                                    if (result != null) {
-                                      await _viewModel.saveDreamDiagnosis(
-                                        result,
-                                      );
-                                      await _viewModel.loadDiagnosis();
-                                    }
-
-                                    _viewModel.loadDiagnosis();
-                                  },
-                            icon: _viewModel.isDiagnosing
-                                ? Container(
-                                    width: 24,
-                                    height: 24,
-                                    padding: EdgeInsets.all(2),
-                                    child: const CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: ColorConstant.onPrimary,
-                                    ),
-                                  )
-                                : Icon(Icons.favorite_outline, size: 24),
-                            label: Text(
-                              _viewModel.isDiagnosing
-                                  ? "Diagnosing..."
-                                  : "Diagnose My Dream",
-                              style: GoogleFonts.robotoFlex(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: ColorConstant.onPrimary,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: ColorConstant.primaryContainer,
-                              foregroundColor: ColorConstant.onPrimaryContainer,
-                              padding: EdgeInsets.symmetric(horizontal: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
+                    SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: CustomPillButton(
+                        labelText: _viewModel.isDiagnosing
+                            ? "Analyzing Patterns..."
+                            : "Reveal New Insights",
+                        icon: Icons.refresh_rounded,
+                        onPressed: _viewModel.isDiagnosing
+                            ? null
+                            : _diagnoseDreams,
+                      ),
+                    ),
+                    Spacer(),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        "Analysis updates based on your recent 10 dreams.",
+                        style: GoogleFonts.robotoFlex(
+                          color: ColorConstant.onSurfaceVariant.withAlpha(100),
+                          fontSize: 12,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              );
-            },
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         );
       },
