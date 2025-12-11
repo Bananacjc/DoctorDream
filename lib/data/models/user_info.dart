@@ -1,29 +1,29 @@
 // lib/models/user_info.dart
 
 class UserInfo {
-  final String? emotion;
-  final String? dream;
+  final String? name;
+  final int? age;
   final Map<String, dynamic>? additionalInfo;
 
   const UserInfo({
-    this.emotion,
-    this.dream,
+    this.name,
+    this.age,
     this.additionalInfo,
   });
 
   /// Creates a UserInfo with default/hardcoded values for testing
   factory UserInfo.defaultValues() {
     return const UserInfo(
-      emotion: 'sad',
-      dream: 'nervous',
+      name: 'Dreamer',
+      age: 25,
     );
   }
 
   /// Creates a UserInfo from a map
   factory UserInfo.fromMap(Map<String, dynamic> map) {
     return UserInfo(
-      emotion: map['emotion'] as String?,
-      dream: map['dream'] as String?,
+      name: map['name'] as String?,
+      age: map['age'] is int ? map['age'] as int? : int.tryParse('${map['age']}'),
       additionalInfo: map['additionalInfo'] as Map<String, dynamic>?,
     );
   }
@@ -31,8 +31,8 @@ class UserInfo {
   /// Converts UserInfo to a map
   Map<String, dynamic> toMap() {
     return {
-      'emotion': emotion,
-      'dream': dream,
+      'name': name,
+      'age': age,
       'additionalInfo': additionalInfo,
     };
   }
@@ -41,12 +41,12 @@ class UserInfo {
   String toPromptString() {
     final buffer = StringBuffer();
     
-    if (emotion != null && emotion!.isNotEmpty) {
-      buffer.writeln('Current emotion: $emotion');
+    if (name != null && name!.isNotEmpty) {
+      buffer.writeln('User name: $name');
     }
     
-    if (dream != null && dream!.isNotEmpty) {
-      buffer.writeln('Dream state: $dream');
+    if (age != null && age! > 0) {
+      buffer.writeln('Age: $age');
     }
     
     if (additionalInfo != null && additionalInfo!.isNotEmpty) {

@@ -11,12 +11,14 @@ import '../../constants/string_constant.dart';
 import '../models/music_track.dart';
 import '../models/video_track.dart';
 import '../models/article_recommendation.dart';
+import '../models/chat_session.dart';
+import '../models/chat_message.dart';
 
 class LocalDatabase {
   LocalDatabase._();
 
   static const _dbName = StringConstant.dbName;
-  static const _dbVersion = 3;
+  static const _dbVersion = 4;
 
   static final LocalDatabase instance = LocalDatabase._();
 
@@ -87,6 +89,15 @@ class LocalDatabase {
     ''');
 
     await db.execute('''
+      CREATE TABLE IF NOT EXISTS calm_resources (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        description TEXT,
+        created_at TEXT
+      )
+    ''');
+
+    await db.execute('''
       CREATE TABLE IF NOT EXISTS dream_entries (
         dream_id TEXT PRIMARY KEY,
         dream_title TEXT NOT NULL,
@@ -151,6 +162,26 @@ class LocalDatabase {
         moodBenefit TEXT,
         tags TEXT,
         created_at TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS chat_sessions (
+        id TEXT PRIMARY KEY,
+        title TEXT,
+        created_at TEXT,
+        updated_at TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        text TEXT,
+        is_user INTEGER,
+        created_at TEXT,
+        FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
       )
     ''');
   }
@@ -272,6 +303,26 @@ class LocalDatabase {
         moodBenefit TEXT,
         tags TEXT,
         created_at TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS chat_sessions (
+        id TEXT PRIMARY KEY,
+        title TEXT,
+        created_at TEXT,
+        updated_at TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        text TEXT,
+        is_user INTEGER,
+        created_at TEXT,
+        FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
       )
     ''');
   }
@@ -695,5 +746,73 @@ class LocalDatabase {
       orderBy: 'created_at DESC',
     );
     return result.map(ArticleRecommendation.fromMap).toList();
+  }
+
+  // Chat Session -----------------------------------------------------------
+  Future<void> createChatSession(ChatSession session) async {
+    final db = await database;
+    await db.insert(
+      'chat_sessions',
+      session.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<ChatSession>> fetchChatSessions() async {
+    final db = await database;
+    final result = await db.query(
+      'chat_sessions',
+      orderBy: 'updated_at DESC',
+    );
+    return result.map(ChatSession.fromMap).toList();
+  }
+
+  Future<void> deleteChatSession(String id) async {
+    final db = await database;
+    await db.delete(
+      'chat_sessions',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> updateChatSessionTitle(String id, String title) async {
+    final db = await database;
+    await db.update(
+      'chat_sessions',
+      {'title': title, 'updated_at': DateTime.now().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // Chat Messages ----------------------------------------------------------
+  Future<void> saveChatMessage(ChatMessage message) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.insert(
+        'chat_messages',
+        message.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      // Update session timestamp
+      await txn.update(
+        'chat_sessions',
+        {'updated_at': message.createdAt.toIso8601String()},
+        where: 'id = ?',
+        whereArgs: [message.sessionId],
+      );
+    });
+  }
+
+  Future<List<ChatMessage>> fetchChatMessages(String sessionId) async {
+    final db = await database;
+    final result = await db.query(
+      'chat_messages',
+      where: 'session_id = ?',
+      whereArgs: [sessionId],
+      orderBy: 'created_at ASC',
+    );
+    return result.map(ChatMessage.fromMap).toList();
   }
 }

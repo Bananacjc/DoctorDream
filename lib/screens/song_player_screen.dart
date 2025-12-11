@@ -245,7 +245,7 @@ class _SongPlayerScreenState extends State<SongPlayerScreen> {
     // If controller is not ready, show loading or error
     if (_controller == null) {
       return Scaffold(
-        backgroundColor: const Color(0xFF081944),
+        extendBodyBehindAppBar: true,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -259,8 +259,20 @@ class _SongPlayerScreenState extends State<SongPlayerScreen> {
             ),
           ),
         ),
-        body: Center(
-          child: _isLoading
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF081944), // navy
+                Color(0xFF0D2357), // slightly lighter navy
+                Color(0xFF152C69), // even lighter
+              ],
+            ),
+          ),
+          child: Center(
+            child: _isLoading
               ? const CircularProgressIndicator(color: Colors.white)
               : _error != null
                   ? Column(
@@ -280,6 +292,7 @@ class _SongPlayerScreenState extends State<SongPlayerScreen> {
                       ],
                     )
                   : const SizedBox(),
+        ),
         ),
       );
     }
@@ -361,7 +374,17 @@ class _SongPlayerScreenState extends State<SongPlayerScreen> {
                 Expanded(
                   flex: 3,
                   child: Container(
-                    color: const Color(0xFF081944),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0xFF081944), // navy
+                          Color(0xFF0D2357), // slightly lighter navy
+                          Color(0xFF152C69), // even lighter
+                        ],
+                      ),
+                    ),
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,

@@ -33,6 +33,24 @@ class GeminiService {
     );
   }
 
+  /// Detects quota/rate-limit errors from the free tier
+  bool _isQuotaOrRateLimitError(Object e) {
+    final lower = e.toString().toLowerCase();
+    return lower.contains('429') ||
+        lower.contains('rate limit') ||
+        lower.contains('quota') ||
+        lower.contains('resource has been exhausted') ||
+        lower.contains('daily limit') ||
+        lower.contains('billing') ||
+        lower.contains('insufficient') ||
+        lower.contains('exceed');
+  }
+
+  String _friendlyLimitMessage(String action) {
+    return 'We have reached the free Gemini quota while $action. '
+        'Please try again later today or upgrade your key.';
+  }
+
   // Dream analysis prompt
   Future<String> analyzeDream(
     String title,
@@ -59,6 +77,9 @@ class GeminiService {
                 "this time. Please try again later.";
     } catch (e) {
       print("GEMINI API ERROR (analyzeDream): $e");
+      if (_isQuotaOrRateLimitError(e)) {
+        return _friendlyLimitMessage('analyzing your dream');
+      }
       return "Sorry, I had trouble analyzing the dream. Please try again "
           "later.";
     }
@@ -109,6 +130,9 @@ class GeminiService {
                 "dreams at this time. Please try again later.";
     } catch (e) {
       print("GEMINI API ERROR (diagnoseDream): $e");
+      if (_isQuotaOrRateLimitError(e)) {
+        return _friendlyLimitMessage('running the dream diagnosis');
+      }
       return "Sorry, I had trouble diagnosing the dream. Please try again "
           "later.";
     }
@@ -143,6 +167,9 @@ class GeminiService {
       return reply?.isNotEmpty == true ? reply! : '(No response from Gemini)';
     } catch (e) {
       print('Gemini API error: $e');
+      if (_isQuotaOrRateLimitError(e)) {
+        return _friendlyLimitMessage('chatting right now');
+      }
       return 'Sorry, I had trouble responding just now. Could you please try again?';
     }
   }
@@ -168,6 +195,9 @@ class GeminiService {
           : '(No video recommendations available)';
     } catch (e) {
       print('Gemini API error (recommendVideo): $e');
+      if (_isQuotaOrRateLimitError(e)) {
+        return _friendlyLimitMessage('loading video recommendations');
+      }
       return 'Sorry, I had trouble generating video recommendations. Could you please try again?';
     }
   }
@@ -193,6 +223,9 @@ class GeminiService {
           : '(No music recommendations available)';
     } catch (e) {
       print('Gemini API error (recommendMusic): $e');
+      if (_isQuotaOrRateLimitError(e)) {
+        return _friendlyLimitMessage('loading music recommendations');
+      }
       return 'Sorry, I had trouble generating music recommendations. Could you please try again?';
     }
   }
@@ -213,6 +246,9 @@ class GeminiService {
       return reply?.isNotEmpty == true ? reply! : '(No article generated)';
     } catch (e) {
       print('Gemini API error (generateArticle): $e');
+      if (_isQuotaOrRateLimitError(e)) {
+        return _friendlyLimitMessage('generating this article');
+      }
       return 'Sorry, I had trouble generating the article. Could you please try again?';
     }
   }
@@ -269,6 +305,9 @@ $extraContext
           .toList();
     } catch (e) {
       print('Gemini API error (recommendArticles): $e');
+      if (_isQuotaOrRateLimitError(e)) {
+        return const [];
+      }
       return const [];
     }
   }

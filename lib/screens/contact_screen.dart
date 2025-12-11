@@ -186,7 +186,8 @@ class _ContactScreenState extends State<ContactScreen> {
           ),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: _showContactSheet,
-            backgroundColor: const Color(0xFF4E8BFF),
+            backgroundColor: const Color(0xFFB7B9FF),
+            foregroundColor: const Color(0xFF081944),
             icon: const Icon(Icons.person_add_alt_1),
             label: const Text('Add Contact'),
           ),
@@ -222,11 +223,34 @@ class _ContactScreenState extends State<ContactScreen> {
                         )
                       : contacts.isEmpty
                           ? Center(
-                              child: Text(
-                                'No contacts yet.\nAdd trusted people to reach out quickly.',
-                                style: theme.textTheme.titleMedium
-                                    ?.copyWith(color: Colors.white70),
-                                textAlign: TextAlign.center,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.groups_outlined,
+                                      size: 48, color: Colors.white54),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'No contacts yet.\nAdd trusted people to reach out quickly.',
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(color: Colors.white70),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor:
+                                          const Color(0xFFB7B9FF),
+                                      foregroundColor:
+                                          const Color(0xFF081944),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    onPressed: _showContactSheet,
+                                    icon: const Icon(Icons.person_add_alt_1),
+                                    label: const Text('Add Contact'),
+                                  ),
+                                ],
                               ),
                             )
                           : RefreshIndicator(
@@ -240,24 +264,17 @@ class _ContactScreenState extends State<ContactScreen> {
                                   final contact = contacts[index];
                                   return Container(
                                     decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [
-                                          Color(0xFF1B2D53),
-                                          Color(0xFF243765),
-                                        ],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
+                                      color: Colors.white.withOpacity(0.08),
                                       borderRadius: BorderRadius.circular(20),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.25),
-                                          blurRadius: 16,
-                                          offset: const Offset(0, 6),
+                                          color: Colors.black.withOpacity(0.18),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 4),
                                         ),
                                       ],
                                       border: Border.all(
-                                        color: Colors.white.withOpacity(0.05),
+                                        color: Colors.white.withOpacity(0.08),
                                       ),
                                     ),
                                     child: Padding(
@@ -265,19 +282,21 @@ class _ContactScreenState extends State<ContactScreen> {
                                       child: Row(
                                         children: [
                                           CircleAvatar(
-                                            radius: 30,
+                                            radius: 28,
                                             backgroundColor:
-                                                const Color(0xFF2F4A80),
+                                                const Color(0xFFB7B9FF)
+                                                    .withOpacity(0.25),
+                                            foregroundColor:
+                                                const Color(0xFF081944),
                                             child: Text(
                                               contact.initials,
                                               style: const TextStyle(
                                                 fontSize: 18,
                                                 fontWeight: FontWeight.bold,
-                                                color: Colors.white,
                                               ),
                                             ),
                                           ),
-                                          const SizedBox(width: 16),
+                                          const SizedBox(width: 14),
                                           Expanded(
                                             child: Column(
                                               crossAxisAlignment:
@@ -289,8 +308,8 @@ class _ContactScreenState extends State<ContactScreen> {
                                                   overflow:
                                                       TextOverflow.ellipsis,
                                                   style: const TextStyle(
-                                                    fontSize: 18,
-                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 17,
+                                                    fontWeight: FontWeight.w700,
                                                     color: Colors.white,
                                                   ),
                                                 ),
@@ -304,6 +323,7 @@ class _ContactScreenState extends State<ContactScreen> {
                                                       TextOverflow.ellipsis,
                                                   style: const TextStyle(
                                                     color: Colors.white70,
+                                                    fontSize: 13,
                                                   ),
                                                 ),
                                                 const SizedBox(height: 6),
@@ -322,29 +342,47 @@ class _ContactScreenState extends State<ContactScreen> {
                                           ),
                                           const SizedBox(width: 8),
                                           Column(
+                                            mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              IconButton(
-                                                icon: const Icon(Icons.call),
-                                                color: Colors.green.shade500,
-                                                tooltip: 'Call',
-                                                onPressed: () {
-                                                  ScaffoldMessenger.of(context)
-                                                      .showSnackBar(
-                                                    SnackBar(
-                                                      content: Text(
-                                                        'Pretending to call ${contact.name}...',
+                                              Container(
+                                                decoration: BoxDecoration(
+                                                  color: Colors.green
+                                                      .withOpacity(0.14),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: IconButton(
+                                                  icon: const Icon(Icons.call),
+                                                  color: Colors.green.shade400,
+                                                  tooltip: 'Call',
+                                                  onPressed: () {
+                                                    ScaffoldMessenger.of(
+                                                            context)
+                                                        .showSnackBar(
+                                                      SnackBar(
+                                                        content: Text(
+                                                          'Pretending to call ${contact.name}...',
+                                                        ),
                                                       ),
-                                                    ),
-                                                  );
-                                                },
+                                                    );
+                                                  },
+                                                ),
                                               ),
-                                              IconButton(
-                                                icon: const Icon(
-                                                    Icons.delete_outline),
-                                                color: Colors.red.shade400,
-                                                tooltip: 'Remove',
-                                                onPressed: () =>
-                                                    _removeContact(contact),
+                                              const SizedBox(height: 8),
+                                              Container(
+                                                decoration: BoxDecoration(
+                                                  color: Colors.red
+                                                      .withOpacity(0.12),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: IconButton(
+                                                  icon: const Icon(
+                                                    Icons.delete_outline,
+                                                  ),
+                                                  color: Colors.red.shade300,
+                                                  tooltip: 'Remove',
+                                                  onPressed: () =>
+                                                      _removeContact(contact),
+                                                ),
                                               ),
                                             ],
                                           )

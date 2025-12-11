@@ -154,9 +154,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     double progress = (_pullDistance / _triggerThreshold).clamp(0.0, 1.0);
 
     return Scaffold(
-      backgroundColor: navy,
-      body: SafeArea(
-        child: NotificationListener<ScrollNotification>(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF081944), // navy
+              Color(0xFF0D2357), // slightly lighter navy
+              Color(0xFF152C69), // even lighter
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: NotificationListener<ScrollNotification>(
           onNotification: _handleScrollNotification,
           child: CustomScrollView(
             controller: _scrollController,
@@ -281,16 +292,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: 12),
                       _ActionItem(
-                        icon: Icons.access_time_outlined,
-                        title: 'Mood Journal / Dream History',
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const DreamReviewScreen(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _ActionItem(
                         icon: Icons.add_circle_outline,
                         title: 'Safety Plan',
                         onTap: () => Navigator.of(context).push(
@@ -389,6 +390,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

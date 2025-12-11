@@ -19,7 +19,7 @@ class RecommendScreen extends StatefulWidget {
   State<RecommendScreen> createState() => _RecommendScreenState();
 }
 
-enum _RecommendationCategory { all, music, video, exercise, article }
+enum _RecommendationCategory { all, music, video, article }
 
 class _RecommendScreenState extends State<RecommendScreen> {
   // State management
@@ -31,8 +31,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
 
   String? _videoInlineAnswer;
   List<VideoTrack> _videoTracks = [];
-
-  String? _exerciseInlineAnswer;
 
   List<ArticleRecommendation> _articleRecommendations = [];
   bool _isArticleLoading = true;
@@ -52,6 +50,11 @@ class _RecommendScreenState extends State<RecommendScreen> {
   DreamEntry? _latestDream;
   DreamAnalysis? _latestDreamAnalysis;
 
+  // Best-for-you pick derived from latest dream
+  MusicTrack? _bestMusic;
+  VideoTrack? _bestVideo;
+  ArticleRecommendation? _bestArticle;
+
   @override
   void initState() {
     super.initState();
@@ -61,8 +64,32 @@ class _RecommendScreenState extends State<RecommendScreen> {
         setState(() => _hasTypedPrompt = hasText);
       }
     });
-    _loadLatestDreamAnalysis();
-    _fetchRecommendations();
+    _initData();
+  }
+
+  /// Determine the best item based on latest dream (simple priority)
+  void _determineBestRecommendation() {
+    if (_latestDream == null) {
+      _bestMusic = null;
+      _bestVideo = null;
+      _bestArticle = null;
+      return;
+    }
+
+    _bestMusic = _musicTracks.isNotEmpty ? _musicTracks.first : null;
+    _bestVideo = _bestMusic == null && _videoTracks.isNotEmpty
+        ? _videoTracks.first
+        : null;
+    _bestArticle = _bestMusic == null && _bestVideo == null && _articleRecommendations.isNotEmpty
+        ? _articleRecommendations.first
+        : null;
+  }
+
+  Future<void> _initData() async {
+    await _loadLatestDreamAnalysis();
+    if (mounted) {
+      _fetchRecommendations();
+    }
   }
 
   /// Load the latest dream entry and its analysis
@@ -132,8 +159,9 @@ class _RecommendScreenState extends State<RecommendScreen> {
         _fetchMusic(customPrompt: effectivePrompt),
         _fetchArticles(customPrompt: effectivePrompt),
         _fetchVideo(customPrompt: effectivePrompt),
-        // _fetchExercise(),
       ]);
+
+      _determineBestRecommendation();
 
       if (!mounted) return;
       setState(() {
@@ -163,6 +191,9 @@ class _RecommendScreenState extends State<RecommendScreen> {
       _articleRecommendations = [];
       _articleInlineAnswer = null;
       _articleError = null;
+      _bestMusic = null;
+      _bestVideo = null;
+      _bestArticle = null;
     });
     await _loadLatestDreamAnalysis();
     _fetchRecommendations();
@@ -193,6 +224,9 @@ class _RecommendScreenState extends State<RecommendScreen> {
       _videoInlineAnswer = null;
       _isArticleLoading = true;
       _articleRecommendations = [];
+      _bestMusic = null;
+      _bestVideo = null;
+      _bestArticle = null;
     });
 
     // Reload latest dream analysis before fetching recommendations
@@ -260,7 +294,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
       setState(() {
         _musicTracks = tracks;
         _musicInlineAnswer = tracks.isNotEmpty
-            ? 'Found ${tracks.length} track(s) for your mood'
+            ? 'Found ${tracks.length} track(s) for you'
             : 'No tracks found from Gemini';
         _error = null; // Clear any previous errors
         _isLoading = false;
@@ -367,7 +401,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
       setState(() {
         _videoTracks = tracks;
         _videoInlineAnswer = tracks.isNotEmpty
-            ? 'Found ${tracks.length} video(s) for your mood'
+            ? 'Found ${tracks.length} video(s) for you'
             : 'No videos found from Gemini';
         _error = null; // Clear any previous errors
         _isLoading = false;
@@ -534,17 +568,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
     }
   }
 
-  /// Fetch exercise recommendations (placeholder for future implementation)
-  // ignore: unused_element
-  Future<void> _fetchExercise() async {
-    // TODO: Implement exercise recommendations
-    // This will be implemented later with a specific Gemini prompt for exercises
-    if (!mounted) return;
-    setState(() {
-      _exerciseInlineAnswer = 'Coming soon';
-    });
-  }
-
   /// Fetch article recommendations using Gemini service
   Future<void> _fetchArticles({String? customPrompt}) async {
     setState(() {
@@ -652,9 +675,20 @@ class _RecommendScreenState extends State<RecommendScreen> {
     const EdgeInsets pagePadding = EdgeInsets.symmetric(horizontal: 16.0);
 
     return Scaffold(
-      backgroundColor: navy,
-      body: SafeArea(
-        child: RefreshIndicator(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF081944), // navy
+              Color(0xFF0D2357), // slightly lighter navy
+              Color(0xFF152C69), // even lighter
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: RefreshIndicator(
           color: Colors.white,
           backgroundColor: navy,
           onRefresh: _handlePullToRefresh,
@@ -690,57 +724,50 @@ class _RecommendScreenState extends State<RecommendScreen> {
 
               // Category row
               SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 88,
-                  child: ListView(
-                    padding: pagePadding,
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      _CategoryPill(
-                        label: 'All',
-                        icon: Icons.spa_outlined,
-                        selected:
-                            _selectedCategory == _RecommendationCategory.all,
-                        onTap: () =>
-                            _onCategorySelected(_RecommendationCategory.all),
-                      ),
-                      _CategoryPill(
-                        label: 'Music',
-                        icon: Icons.music_note_outlined,
-                        selected:
-                            _selectedCategory == _RecommendationCategory.music,
-                        onTap: () =>
-                            _onCategorySelected(_RecommendationCategory.music),
-                      ),
-                      _CategoryPill(
-                        label: 'Video',
-                        icon: Icons.play_circle_outline,
-                        selected:
-                            _selectedCategory == _RecommendationCategory.video,
-                        onTap: () =>
-                            _onCategorySelected(_RecommendationCategory.video),
-                      ),
-                      _CategoryPill(
-                        label: 'Exercise',
-                        icon: Icons.self_improvement_outlined,
-                        selected:
-                            _selectedCategory ==
-                            _RecommendationCategory.exercise,
-                        onTap: () => _onCategorySelected(
-                          _RecommendationCategory.exercise,
+                child: Padding(
+                  padding: pagePadding,
+                  child: SizedBox(
+                    height: 88,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        _CategoryPill(
+                          label: 'All',
+                          icon: Icons.spa_outlined,
+                          selected:
+                              _selectedCategory == _RecommendationCategory.all,
+                          onTap: () =>
+                              _onCategorySelected(_RecommendationCategory.all),
                         ),
-                      ),
-                      _CategoryPill(
-                        label: 'Article',
-                        icon: Icons.article_outlined,
-                        selected:
-                            _selectedCategory ==
+                        _CategoryPill(
+                          label: 'Music',
+                          icon: Icons.music_note_outlined,
+                          selected:
+                              _selectedCategory == _RecommendationCategory.music,
+                          onTap: () =>
+                              _onCategorySelected(_RecommendationCategory.music),
+                        ),
+                        _CategoryPill(
+                          label: 'Video',
+                          icon: Icons.play_circle_outline,
+                          selected:
+                              _selectedCategory == _RecommendationCategory.video,
+                          onTap: () =>
+                              _onCategorySelected(_RecommendationCategory.video),
+                        ),
+                        _CategoryPill(
+                          label: 'Article',
+                          icon: Icons.article_outlined,
+                          selected:
+                              _selectedCategory ==
+                              _RecommendationCategory.article,
+                          onTap: () => _onCategorySelected(
                             _RecommendationCategory.article,
-                        onTap: () => _onCategorySelected(
-                          _RecommendationCategory.article,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -810,8 +837,9 @@ class _RecommendScreenState extends State<RecommendScreen> {
                 ),
               ),
 
-              // Best for you card
-              if (_selectedCategory == _RecommendationCategory.all)
+              // Best for you card (based on latest dream)
+              if (_selectedCategory == _RecommendationCategory.all &&
+                  (_bestMusic != null || _bestVideo != null || _bestArticle != null))
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: pagePadding.copyWith(top: 12.0),
@@ -820,29 +848,32 @@ class _RecommendScreenState extends State<RecommendScreen> {
                       children: [
                         const Text(
                           'Best for you',
-                          style: TextStyle(fontWeight: FontWeight.w700),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
                         ),
                         const SizedBox(height: 12),
-                        Container(
-                          height: 180,
-                          decoration: BoxDecoration(
-                            color: lightNavy,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Align(
-                            alignment: Alignment.bottomRight,
-                            child: Padding(
-                              padding: const EdgeInsets.all(12.0),
-                              child: _PlayGlyph(color: accent),
-                            ),
-                          ),
+                        _BestForYouCard(
+                          music: _bestMusic,
+                          video: _bestVideo,
+                          article: _bestArticle,
+                          onMusicTap: _bestMusic != null
+                              ? () => _openSongPlayer(_bestMusic!)
+                              : null,
+                          onVideoTap: _bestVideo != null
+                              ? () => _openVideo(_bestVideo!)
+                              : null,
+                          onArticleTap: _bestArticle != null
+                              ? () => _openArticle(_bestArticle!)
+                              : null,
                         ),
                       ],
                     ),
                   ),
                 ),
 
-              // Sections: Music, Video, Exercise
+              // Sections: Music, Video, Article
               SliverToBoxAdapter(
                 child: Padding(
                   padding: pagePadding.copyWith(top: 16.0),
@@ -902,21 +933,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
                         const SizedBox(height: 20),
                       ],
                       if (_shouldShowCategory(
-                        _RecommendationCategory.exercise,
-                      )) ...[
-                        _SectionRow(
-                          title: 'Exercise',
-                          trailing: _isLoading
-                              ? 'Loading…'
-                              : (_exerciseInlineAnswer ?? 'Coming soon'),
-                        ),
-                        const SizedBox(height: 12),
-                        _selectedCategory == _RecommendationCategory.exercise
-                            ? const _CardGrid()
-                            : const _CardRow(),
-                        const SizedBox(height: 20),
-                      ],
-                      if (_shouldShowCategory(
                         _RecommendationCategory.article,
                       )) ...[
                         _SectionRow(
@@ -958,7 +974,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 
@@ -978,37 +994,40 @@ class _CategoryPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.only(right: 12.0),
-        child: Column(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: selected
-                    ? const Color(0xFFB7B9FF)
-                    : const Color(0xFF2E3D6B),
-                borderRadius: BorderRadius.circular(14),
-              ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: selected
+                  ? const Color(0xFFB7B9FF)
+                  : const Color(0xFF2E3D6B),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Center(
               child: Icon(
                 icon,
                 color: selected
                     ? const Color(0xFF081944)
                     : const Color(0xFFB7B9FF),
+                size: 24,
               ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: selected ? Colors.white : const Color(0xFFB4BEDA),
-              ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? Colors.white : const Color(0xFFB4BEDA),
             ),
-          ],
-        ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
@@ -1145,8 +1164,12 @@ class _MusicGrid extends StatelessWidget {
                 4,
                 (index) => Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0D2357),
+                    color: Colors.white.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.1),
+                      width: 1,
+                    ),
                   ),
                 ),
               ),
@@ -1162,8 +1185,12 @@ class _MusicGrid extends StatelessWidget {
                   return Container(
                     width: 150,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0D2357),
+                      color: Colors.white.withOpacity(0.5),
                       borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.1),
+                        width: 1,
+                      ),
                     ),
                     child: const Center(child: _PlayGlyph()),
                   );
@@ -1281,8 +1308,12 @@ class _VideoGrid extends StatelessWidget {
                 4,
                 (index) => Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0D2357),
+                    color: Colors.white.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.1),
+                      width: 1,
+                    ),
                   ),
                 ),
               ),
@@ -1298,8 +1329,12 @@ class _VideoGrid extends StatelessWidget {
                   return Container(
                     width: 150,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0D2357),
+                      color: Colors.white.withOpacity(0.5),
                       borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.1),
+                        width: 1,
+                      ),
                     ),
                     child: const Center(child: _PlayGlyph()),
                   );
@@ -1361,12 +1396,19 @@ class _VideoTrackCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       child: Ink(
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF243B6B), Color(0xFF0D2357)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: Colors.white.withOpacity(0.5),
           borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.1),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Padding(
             padding: const EdgeInsets.all(12.0),
@@ -1529,8 +1571,12 @@ class _ArticleCarousel extends StatelessWidget {
             child: article == null
                 ? Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0D2357),
+                      color: Colors.white.withOpacity(0.5),
                       borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.1),
+                        width: 1,
+                      ),
                     ),
                   )
                 : _ArticleCard(
@@ -1594,31 +1640,46 @@ class _ArticleGridExpanded extends StatelessWidget {
         ? List<ArticleRecommendation?>.filled(4, null)
         : articles;
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.95,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final article = items[index];
-        if (article == null) {
-          return Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF0D2357),
-              borderRadius: BorderRadius.circular(18),
-            ),
+    // Calculate height based on number of items
+    // 2 columns, so rows = (items.length / 2).ceil()
+    // Each row height = (width / 2 - spacing) / aspectRatio + spacing
+    // For safety, use a minimum height per item
+    final rowCount = (items.length / 2).ceil();
+    final itemHeight = 200.0; // Approximate height per item
+    final spacing = 12.0;
+    final totalHeight = (rowCount * itemHeight) + ((rowCount - 1) * spacing);
+
+    return SizedBox(
+      height: totalHeight,
+      child: GridView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 0.95,
+        ),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final article = items[index];
+          if (article == null) {
+            return Container(
+              decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.1),
+                  width: 1,
+                ),
+              ),
+            );
+          }
+          return _ArticleCard(
+            article: article,
+            onTap: () => onArticleTap(article),
           );
-        }
-        return _ArticleCard(
-          article: article,
-          onTap: () => onArticleTap(article),
-        );
-      },
+        },
+      ),
     );
   }
 }
@@ -1636,12 +1697,19 @@ class _ArticleCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       child: Ink(
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF1B2D58), Color(0xFF0B1A3A)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: Colors.white.withOpacity(0.5),
           borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.1),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -1735,12 +1803,19 @@ class _MusicTrackCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       child: Ink(
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF243B6B), Color(0xFF0D2357)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: Colors.white.withOpacity(0.5),
           borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.1),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Padding(
             padding: const EdgeInsets.all(12.0),
@@ -1881,8 +1956,16 @@ class _CardGrid extends StatelessWidget {
         4,
         (index) => Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF0D2357),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF2E4A7A), Color(0xFF1A3A5F)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.1),
+              width: 1,
+            ),
           ),
           child: const Center(child: _PlayGlyph()),
         ),
@@ -1907,12 +1990,173 @@ class _CardRow extends StatelessWidget {
           return Container(
             width: 150,
             decoration: BoxDecoration(
-              color: const Color(0xFF0D2357),
+              color: Colors.white.withOpacity(0.5),
               borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.1),
+                width: 1,
+              ),
             ),
             child: const Center(child: _PlayGlyph()),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Best for you card widget
+class _BestForYouCard extends StatelessWidget {
+  final MusicTrack? music;
+  final VideoTrack? video;
+  final ArticleRecommendation? article;
+  final VoidCallback? onMusicTap;
+  final VoidCallback? onVideoTap;
+  final VoidCallback? onArticleTap;
+
+  const _BestForYouCard({
+    this.music,
+    this.video,
+    this.article,
+    this.onMusicTap,
+    this.onVideoTap,
+    this.onArticleTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isMusic = music != null;
+    final bool isVideo = !isMusic && video != null;
+    final bool isArticle = !isMusic && !isVideo && article != null;
+
+    final String title = isMusic
+        ? music!.title
+        : isVideo
+            ? video!.title
+            : article?.title ?? '';
+    final String subtitle = isMusic
+        ? music!.artist
+        : isVideo
+            ? (video!.channel ?? '')
+            : (article?.summary ?? '');
+
+    final IconData icon = isMusic
+        ? Icons.music_note
+        : isVideo
+            ? Icons.play_circle
+            : Icons.article;
+
+    final String? thumbnail = isMusic
+        ? music!.thumbnailUrl
+        : isVideo
+            ? video!.thumbnailUrl
+            : null;
+
+    final VoidCallback? onTap =
+        isMusic ? onMusicTap : isVideo ? onVideoTap : onArticleTap;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Ink(
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.12),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.25),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 90,
+                height: 90,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  gradient: thumbnail == null
+                      ? const LinearGradient(
+                          colors: [Color(0xFFB7B9FF), Color(0xFF6C6EE4)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  image: thumbnail != null
+                      ? DecorationImage(
+                          image: NetworkImage(thumbnail),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                ),
+                child: thumbnail == null
+                    ? Icon(icon, color: Colors.white, size: 36)
+                    : null,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(icon, color: const Color(0xFFB7B9FF), size: 18),
+                        const SizedBox(width: 6),
+                        Text(
+                          isMusic
+                              ? 'Music'
+                              : isVideo
+                                  ? 'Video'
+                                  : 'Article',
+                          style: const TextStyle(
+                            color: Color(0xFFB7B9FF),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        fontSize: 16,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFB4BEDA),
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const _PlayGlyph(color: Color(0xFFB7B9FF)),
+            ],
+          ),
+        ),
       ),
     );
   }

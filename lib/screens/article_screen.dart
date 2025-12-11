@@ -52,7 +52,7 @@ class _ArticleScreenState extends State<ArticleScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF081944),
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -68,8 +68,20 @@ class _ArticleScreenState extends State<ArticleScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF081944), // navy
+              Color(0xFF0D2357), // slightly lighter navy
+              Color(0xFF152C69), // even lighter
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -134,6 +146,7 @@ class _ArticleScreenState extends State<ArticleScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

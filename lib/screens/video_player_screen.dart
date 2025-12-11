@@ -90,7 +90,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         
         // Extract ID from URL
         final extractedId = YoutubePlayer.convertUrlToId(url);
-        videoId = extractedId != null ? extractedId.trim() : null;
+        videoId = extractedId?.trim();
         print('\n========== VIDEO PLAYER SCREEN DEBUG ==========');
         print('Video: ${widget.track.title}');
         print('Video URL: $url');
@@ -407,7 +407,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             Expanded(
               flex: 3,
               child: Container(
-                color: const Color(0xFF081944),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0xFF081944), // navy
+                      Color(0xFF0D2357), // slightly lighter navy
+                      Color(0xFF152C69), // even lighter
+                    ],
+                  ),
+                ),
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,

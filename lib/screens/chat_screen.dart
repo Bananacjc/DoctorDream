@@ -1,14 +1,13 @@
 // lib/screens/chat_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
+import 'package:intl/intl.dart';
 import '../data/services/gemini_service.dart';
 import '../data/models/user_info.dart';
-
-class ChatMessage {
-  final String text;
-  final bool isUser;
-  ChatMessage({required this.text, required this.isUser});
-}
+import '../data/local/local_database.dart';
+import '../data/models/chat_session.dart';
+import '../data/models/chat_message.dart';
 
 class ChatScreen extends StatefulWidget {
   final String? initialMessage;
@@ -20,15 +19,20 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
 
   final List<ChatMessage> _messages = [];
   bool _isSending = false;
-  bool _hasUserSentMessage = false;
-
-  // User information - can be updated from other screens or user input
+  bool _isLoadingHistory = false;
+  
+  // Session management
+  String? _currentSessionId;
+  List<ChatSession> _sessions = [];
+  
+  // User information
   final UserInfo _userInfo = UserInfo.defaultValues();
 
   static const Color navy = Color(0xFF081944);
@@ -39,9 +43,10 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    _loadSessions();
+    
     if (widget.initialMessage != null) {
-      _messages.add(ChatMessage(text: widget.initialMessage!, isUser: false));
-      _hasUserSentMessage = true;
+      _startNewSession(withMessage: widget.initialMessage);
     }
   }
 
@@ -53,6 +58,72 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
+  Future<void> _loadSessions() async {
+    final sessions = await LocalDatabase.instance.fetchChatSessions();
+    if (mounted) {
+      setState(() {
+        _sessions = sessions;
+      });
+    }
+  }
+
+  Future<void> _loadSessionMessages(String sessionId) async {
+    setState(() {
+      _isLoadingHistory = true;
+      _currentSessionId = sessionId;
+      _messages.clear();
+    });
+
+    final messages = await LocalDatabase.instance.fetchChatMessages(sessionId);
+    
+    if (mounted) {
+      setState(() {
+        _messages.addAll(messages);
+        _isLoadingHistory = false;
+      });
+      _scrollToBottom();
+    }
+  }
+
+  Future<void> _startNewSession({String? withMessage}) async {
+    setState(() {
+      _currentSessionId = null;
+      _messages.clear();
+    });
+    
+    if (withMessage != null) {
+      _textController.text = withMessage;
+      _sendMessage();
+    }
+  }
+
+  Future<void> _createNewSessionIfNeeded(String firstMessageText) async {
+    if (_currentSessionId == null) {
+      final newSessionId = const Uuid().v4();
+      final now = DateTime.now();
+      
+      // Use first message as title (truncated)
+      String title = firstMessageText;
+      if (title.length > 30) {
+        title = '${title.substring(0, 30)}...';
+      }
+
+      final session = ChatSession(
+        id: newSessionId,
+        title: title,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      await LocalDatabase.instance.createChatSession(session);
+      
+      setState(() {
+        _currentSessionId = newSessionId;
+        _sessions.insert(0, session); // Add to top of list
+      });
+    }
+  }
+
   Future<void> _sendMessage() async {
     final text = _textController.text.trim();
     if (text.isEmpty || _isSending) return;
@@ -62,43 +133,78 @@ class _ChatScreenState extends State<ChatScreen> {
 
     setState(() {
       _isSending = true;
-
-      if (!_hasUserSentMessage && widget.initialMessage == null) {
-        _messages.add(
-          ChatMessage(
-            text: "Hi, I’m here to listen. What’s on your mind today?",
-            isUser: false,
-          ),
-        );
-        _hasUserSentMessage = true;
-      }
-
-      _messages.add(ChatMessage(text: text, isUser: true));
     });
 
-    _scrollToBottom();
-
     try {
-      final reply = await GeminiService.instance.chat(
+      // 1. Ensure session exists
+      await _createNewSessionIfNeeded(text);
+      final sessionId = _currentSessionId!;
+
+      // 2. Create and save user message
+      final userMsg = ChatMessage(
+        id: const Uuid().v4(),
+        sessionId: sessionId,
+        text: text,
+        isUser: true,
+        createdAt: DateTime.now(),
+      );
+
+      // Add to UI immediately
+      setState(() {
+        _messages.add(userMsg);
+      });
+      _scrollToBottom();
+
+      // Save to DB
+      await LocalDatabase.instance.saveChatMessage(userMsg);
+      
+      // 3. Get Gemini response
+      final replyText = await GeminiService.instance.chat(
         text,
         userInfo: _userInfo,
       );
-      setState(() {
-        _messages.add(ChatMessage(text: reply, isUser: false));
-      });
-    } catch (_) {
-      setState(() {
-        _messages.add(
-          ChatMessage(
-            text:
-                "Sorry, I had trouble responding just now. Could you please try again?",
-            isUser: false,
-          ),
+
+      // 4. Create and save assistant message
+      final assistantMsg = ChatMessage(
+        id: const Uuid().v4(),
+        sessionId: sessionId,
+        text: replyText,
+        isUser: false,
+        createdAt: DateTime.now(),
+      );
+
+      if (mounted) {
+        setState(() {
+          _messages.add(assistantMsg);
+        });
+        await LocalDatabase.instance.saveChatMessage(assistantMsg);
+        
+        // Update session list order (since updated_at changed)
+        _loadSessions(); 
+      }
+      
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
         );
-      });
+        setState(() {
+          _messages.add(ChatMessage(
+            id: const Uuid().v4(),
+            sessionId: _currentSessionId ?? '',
+            text: "Sorry, I had trouble responding just now. Please try again.",
+            isUser: false,
+            createdAt: DateTime.now(),
+          ));
+        });
+      }
     } finally {
-      _isSending = false;
-      _scrollToBottom();
+      if (mounted) {
+        setState(() {
+          _isSending = false;
+        });
+        _scrollToBottom();
+      }
     }
   }
 
@@ -117,8 +223,16 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: navy,
+      key: _scaffoldKey,
+      extendBodyBehindAppBar: true, // Allow gradient to go behind app bar
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.history_rounded, color: Colors.white),
+          tooltip: 'Chat History',
+          onPressed: () {
+            _scaffoldKey.currentState?.openDrawer();
+          },
+        ),
         title: const Text(
           'Dream Companion',
           style: TextStyle(
@@ -127,125 +241,304 @@ class _ChatScreenState extends State<ChatScreen> {
             color: Colors.white,
           ),
         ),
-        backgroundColor: navy,
+        backgroundColor: Colors.transparent, // Transparent for gradient
         centerTitle: true,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_rounded, color: Colors.white),
+            tooltip: 'New chat',
+            onPressed: () => _startNewSession(),
+          ),
+        ],
       ),
-
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: (!_hasUserSentMessage && _messages.isEmpty)
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
+      drawer: _buildHistoryDrawer(),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF081944), // navy
+              Color(0xFF0D2357), // slightly lighter navy
+              Color(0xFF152C69), // even lighter
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: _isLoadingHistory 
+                  ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                  : (_messages.isEmpty)
+                    ? _buildEmptyState()
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        itemCount: _messages.length,
+                        itemBuilder: (_, index) =>
+                            _buildMessageBubble(_messages[index]),
                       ),
-                      itemCount: _messages.length,
-                      itemBuilder: (_, index) =>
-                          _buildMessageBubble(_messages[index]),
-                    ),
-            ),
-
-            if (_isSending)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 6),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      'DoctorDream is typing...',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                ),
               ),
 
-            // Show bottom input only AFTER first message
-            if (_hasUserSentMessage) _buildTextInput(),
-          ],
+              if (_isSending)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Row(
+                          children: [
+                            SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'DoctorDream is thinking...',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              _buildTextInput(),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // -------------------- EMPTY STATE (with centered input bar) --------------------
+  Widget _buildHistoryDrawer() {
+    return Drawer(
+      child: Container(
+        color: const Color(0xFF081944), // Match app theme
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  border: const Border(
+                    bottom: BorderSide(color: Colors.white10),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.history_edu_rounded, color: accent, size: 28),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Text(
+                        'Your Conversations',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline_rounded, color: accent, size: 28),
+                      tooltip: 'New Chat',
+                      onPressed: () {
+                        Navigator.pop(context); // Close drawer
+                        _startNewSession();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              
+              Expanded(
+                child: _sessions.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.chat_bubble_outline, size: 48, color: Colors.white.withOpacity(0.2)),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No chat history yet',
+                              style: TextStyle(color: Colors.white.withOpacity(0.5)),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: _sessions.length,
+                        itemBuilder: (context, index) {
+                          final session = _sessions[index];
+                          final isSelected = session.id == _currentSessionId;
+                          
+                          return Dismissible(
+                            key: Key(session.id),
+                            direction: DismissDirection.startToEnd,
+                            background: Container(
+                              alignment: Alignment.centerLeft,
+                              padding: const EdgeInsets.only(left: 20),
+                              color: Colors.redAccent.withOpacity(0.2),
+                              child: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                            ),
+                            confirmDismiss: (direction) async {
+                               // Optional: Add confirmation dialog
+                               return true;
+                            },
+                            onDismissed: (direction) async {
+                               await LocalDatabase.instance.deleteChatSession(session.id);
+                               _loadSessions();
+                               if (_currentSessionId == session.id) {
+                                 _startNewSession();
+                               }
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isSelected ? accent.withOpacity(0.15) : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                                border: isSelected ? Border.all(color: accent.withOpacity(0.3)) : null,
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                leading: CircleAvatar(
+                                  backgroundColor: isSelected ? accent : Colors.white10,
+                                  radius: 18,
+                                  child: Icon(
+                                    Icons.chat_bubble_rounded,
+                                    size: 18,
+                                    color: isSelected ? navy : Colors.white70,
+                                  ),
+                                ),
+                                title: Text(
+                                  session.title,
+                                  style: TextStyle(
+                                    color: isSelected ? Colors.white : Colors.white70,
+                                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                    fontSize: 15,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                subtitle: Text(
+                                  DateFormat('MMM d, h:mm a').format(session.updatedAt),
+                                  style: TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                onTap: () {
+                                  Navigator.pop(context); // Close drawer
+                                  _loadSessionMessages(session.id);
+                                },
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // -------------------- EMPTY STATE --------------------
   Widget _buildEmptyState() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text(
-            "Let’s talk to make life happier",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
-            decoration: BoxDecoration(
-              color: accent.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: const Column(
-              children: [
-                Icon(
-                  Icons.chat_bubble_outline_rounded,
+    return Center(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 48,
+                  color: accent,
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                "Let’s talk to make life happier",
+                textAlign: TextAlign.center,
+                style: TextStyle(
                   color: Colors.white,
-                  size: 32,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
                 ),
-                SizedBox(height: 12),
-                Text(
-                  "You can tell me about your day,\nyour worries, your dreams,\nor anything that’s on your mind.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontStyle: FontStyle.italic,
-                    height: 1.5,
-                    fontSize: 15,
+              ),
+              const SizedBox(height: 32),
+
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [accent.withOpacity(0.15), accent.withOpacity(0.05)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: accent.withOpacity(0.2)),
                 ),
-                SizedBox(height: 8),
-                Text(
-                  "Whenever you’re ready,\nstart by typing below.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                    height: 1.4,
-                  ),
+                child: const Column(
+                  children: [
+                    Text(
+                      "I'm here to listen.",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      "Tell me about your day, your worries, your dreams, or just chat.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white70,
+                        height: 1.5,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-
-          const SizedBox(height: 30),
-
-          // CENTERED INPUT BAR (only BEFORE chat begins)
-          _buildTextInput(),
-        ],
+        ),
       ),
     );
   }
@@ -253,84 +546,134 @@ class _ChatScreenState extends State<ChatScreen> {
   // -------------------- INPUT BAR --------------------
   Widget _buildTextInput() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      color: navy,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white, width: 1),
-        ),
-        child: TextField(
-          controller: _textController,
-          focusNode: _focusNode,
-          cursorColor: Colors.white,
-          maxLines: null,
-          minLines: 1,
-          textInputAction: TextInputAction.send,
-          onSubmitted: (_) => _sendMessage(),
-          style: const TextStyle(color: Colors.white, fontSize: 16),
-          decoration: InputDecoration(
-            hintText: 'Share with DoctorDream...',
-            hintStyle: const TextStyle(color: Colors.white70),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
-            suffixIcon: Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: _textController.text.isNotEmpty ? accent : Colors.grey,
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.send_rounded,
-                    color: Colors.white,
-                    size: 20,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.transparent, // Transparent background for input area
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: TextField(
+                controller: _textController,
+                focusNode: _focusNode,
+                cursorColor: accent,
+                maxLines: 5,
+                minLines: 1,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _sendMessage(),
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+                decoration: const InputDecoration(
+                  hintText: 'Share with DoctorDream...',
+                  hintStyle: TextStyle(color: Colors.white38),
+                  hintMaxLines: 1,
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
                   ),
-                  onPressed: _textController.text.isNotEmpty
-                      ? _sendMessage
-                      : null,
                 ),
+                onChanged: (_) => setState(() {}),
               ),
             ),
           ),
-          onChanged: (_) => setState(() {}),
-        ),
+          const SizedBox(width: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: _textController.text.isNotEmpty ? accent : Colors.white10,
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: Icon(
+                Icons.send_rounded,
+                color: _textController.text.isNotEmpty ? navy : Colors.white38,
+                size: 20,
+              ),
+              onPressed: _textController.text.isNotEmpty ? _sendMessage : null,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   // -------------------- CHAT BUBBLE --------------------
   Widget _buildMessageBubble(ChatMessage message) {
-    final bubbleColor = message.isUser ? accent : assistantBubbleColor;
-    final textColor = message.isUser ? Colors.white : assistantTextColor;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 6),
+    final isUser = message.isUser;
+    final bubbleColor = isUser ? accent : Colors.white;
+    final textColor = isUser ? navy : const Color(0xFF333333);
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
-        mainAxisAlignment: message.isUser
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
+        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.75,
+          if (!isUser) ...[
+            const CircleAvatar(
+              backgroundColor: Colors.white10,
+              radius: 16,
+              child: Icon(Icons.auto_awesome, size: 16, color: accent),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: bubbleColor,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Text(
-              message.text,
-              style: TextStyle(color: textColor, fontSize: 15, height: 1.4),
+            const SizedBox(width: 8),
+          ],
+          
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: BoxDecoration(
+                color: bubbleColor,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(20),
+                  topRight: const Radius.circular(20),
+                  bottomLeft: isUser ? const Radius.circular(20) : const Radius.circular(4),
+                  bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(20),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    message.text,
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 15,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    DateFormat('h:mm a').format(message.createdAt),
+                    style: TextStyle(
+                      color: textColor.withOpacity(0.5),
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
+          
+          if (isUser) ...[
+            const SizedBox(width: 8),
+            const CircleAvatar(
+              backgroundColor: Colors.white10,
+              radius: 16,
+              child: Icon(Icons.person, size: 16, color: Colors.white70),
+            ),
+          ],
         ],
       ),
     );
