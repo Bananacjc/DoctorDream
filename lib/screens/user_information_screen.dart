@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import '../constants/color_constant.dart';
 import '../data/models/user_profile.dart';
 import '../view_models/user_profile_view_model.dart';
 
@@ -22,8 +25,6 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
   bool _hasAppliedInitialProfile = false;
   late final UserProfileViewModel _viewModel;
 
-  final ScrollController _scrollController = ScrollController();
-
   @override
   void initState() {
     super.initState();
@@ -41,7 +42,6 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
     _locationController.dispose();
     _notesController.dispose();
     _viewModel.dispose();
-    _scrollController.dispose();
     super.dispose();
   }
 
@@ -84,10 +84,12 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          success ? 'Profile saved locally.' : 'Error saving profile.',
+          success ? 'Profile saved.' : 'Error saving profile.',
+          style: TextStyle(color: ColorConstant.onPrimary),
         ),
-        backgroundColor: success ? Colors.green : Colors.red,
+        backgroundColor: success ? ColorConstant.primary : ColorConstant.error,
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -103,282 +105,306 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
         }
 
         if (_viewModel.isLoading) {
-          return const Scaffold(
-            backgroundColor: Color(0xFF0B1F44),
+          return Scaffold(
+            backgroundColor: ColorConstant.surface,
             body: Center(
-              child: CircularProgressIndicator(color: Colors.white),
+              child: CircularProgressIndicator(color: ColorConstant.primary),
             ),
           );
         }
 
         return Scaffold(
-          backgroundColor: const Color(0xFF0B1F44),
-          extendBodyBehindAppBar: true,
+          backgroundColor: ColorConstant.surface,
           appBar: AppBar(
-            backgroundColor: Colors.transparent,
+            backgroundColor: ColorConstant.surface,
             elevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+              icon: Icon(Icons.arrow_back, color: ColorConstant.onSurface),
               onPressed: () => Navigator.of(context).pop(),
             ),
-            title: const Text(
-              'My Profile',
-              style: TextStyle(
-                color: Colors.white, 
-                fontWeight: FontWeight.w600,
+            centerTitle: true,
+            title: Text(
+              "My Profile",
+              style: GoogleFonts.robotoFlex(
+                color: ColorConstant.onSurface,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            centerTitle: true,
             actions: [
-              if (_isEditing)
-                IconButton(
+              Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: IconButton(
                   onPressed: _viewModel.isSaving ? null : _toggleEditState,
+                  style: IconButton.styleFrom(
+                    backgroundColor: _isEditing
+                        ? ColorConstant.primaryContainer
+                        : Colors.transparent,
+                    foregroundColor: _isEditing
+                        ? ColorConstant.onPrimaryContainer
+                        : ColorConstant.onSurfaceVariant,
+                  ),
                   icon: _viewModel.isSaving
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                            color: Colors.white,
                             strokeWidth: 2,
+                            color: ColorConstant.primary,
                           ),
                         )
-                      : const Icon(Icons.check_rounded, color: Colors.white),
-                  tooltip: 'Save Profile',
-                )
-              else
-                IconButton(
-                  onPressed: _toggleEditState,
-                  icon: const Icon(Icons.edit_rounded, color: Colors.white),
-                  tooltip: 'Edit Profile',
+                      : Icon(
+                          _isEditing ? Icons.check_rounded : Icons.edit_rounded,
+                        ),
+                  tooltip: _isEditing ? 'Save Profile' : 'Edit Profile',
                 ),
+              ),
             ],
           ),
-          body: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF0B1F44), Color(0xFF122A5C)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
-            child: SafeArea(
-              child: Column(
-                children: [
-                  Expanded(
-                    child: SingleChildScrollView(
-                      controller: _scrollController,
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 10),
-                          // Avatar Section
-                          Center(
-                            child: Stack(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.2), 
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: CircleAvatar(
-                                    radius: 50,
-                                    backgroundColor: const Color(0xFF243B6B),
-                                    child: const Icon(
-                                      Icons.person_rounded, 
-                                      size: 50, 
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                                if (_isEditing)
-                                  Positioned(
-                                    bottom: 0,
-                                    right: 4,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFF4E8BFF),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.camera_alt_rounded,
-                                        size: 16,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
+          body: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header / Avatar
+                Center(
+                  child: Stack(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color:
+                                ColorConstant.primaryContainer.withOpacity(0.5),
+                            width: 2,
                           ),
-                          const SizedBox(height: 16),
-                          
-                          // Name & Pronouns (Header)
-                          if (!_isEditing) ...[
-                            Text(
-                              _nameController.text.isNotEmpty 
-                                  ? _nameController.text 
-                                  : 'Your Name',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            if (_pronounsController.text.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  _pronounsController.text,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.6),
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-                            const SizedBox(height: 32),
-                          ],
-
-                          // Form Fields
-                          _buildSectionTitle('Identity'),
-                          _buildField(
-                            'Full Name', 
-                            _nameController, 
-                            icon: Icons.badge_outlined,
+                        ),
+                        child: CircleAvatar(
+                          radius: 50,
+                          backgroundColor: ColorConstant.secondaryContainer,
+                          child: Icon(
+                            Icons.person_rounded,
+                            size: 50,
+                            color: ColorConstant.onSecondaryContainer,
                           ),
-                          _buildField(
-                            'Pronouns', 
-                            _pronounsController, 
-                            icon: Icons.record_voice_over_outlined,
-                          ),
-                          _buildField(
-                            'Birthday', 
-                            _birthdayController, 
-                            icon: Icons.cake_outlined,
-                            keyboardType: TextInputType.datetime,
-                          ),
-
-                          const SizedBox(height: 16),
-                          _buildSectionTitle('Contact'),
-                          _buildField(
-                            'Email', 
-                            _emailController, 
-                            icon: Icons.email_outlined,
-                            keyboardType: TextInputType.emailAddress,
-                          ),
-                          _buildField(
-                            'Phone', 
-                            _phoneController, 
-                            icon: Icons.phone_outlined,
-                            keyboardType: TextInputType.phone,
-                          ),
-                          _buildField(
-                            'Location', 
-                            _locationController, 
-                            icon: Icons.location_on_outlined,
-                          ),
-
-                          const SizedBox(height: 16),
-                          _buildSectionTitle('About'),
-                          _buildField(
-                            'Personal Notes', 
-                            _notesController, 
-                            icon: Icons.edit_note_outlined,
-                            maxLines: 4,
-                          ),
-                          
-                          // Bottom spacing for FAB
-                          const SizedBox(height: 80),
-                        ],
+                        ),
                       ),
+                      if (_isEditing)
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: ColorConstant.primary,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: ColorConstant.surface, width: 2),
+                            ),
+                            child: Icon(
+                              Icons.camera_alt_rounded,
+                              size: 16,
+                              color: ColorConstant.onPrimary,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (!_isEditing) ...[
+                  Center(
+                    child: Column(
+                      children: [
+                        Text(
+                          _nameController.text.isNotEmpty
+                              ? _nameController.text
+                              : 'Your Name',
+                          style: GoogleFonts.robotoFlex(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: ColorConstant.onSurface,
+                          ),
+                        ),
+                        if (_pronounsController.text.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              _pronounsController.text,
+                              style: GoogleFonts.robotoFlex(
+                                fontSize: 14,
+                                color: ColorConstant.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                  const SizedBox(height: 32),
+                ] else
+                  const SizedBox(height: 32),
+
+                // Sections
+                _buildSectionHeader("Identity"),
+                const SizedBox(height: 16),
+                _buildCardContainer([
+                  _buildTextField(
+                    controller: _nameController,
+                    label: "Full Name",
+                    icon: Icons.badge_outlined,
+                    isLast: false,
+                  ),
+                  _buildTextField(
+                    controller: _pronounsController,
+                    label: "Pronouns",
+                    icon: Icons.record_voice_over_outlined,
+                    isLast: false,
+                  ),
+                  _buildTextField(
+                    controller: _birthdayController,
+                    label: "Birthday",
+                    icon: Icons.cake_outlined,
+                    isLast: true,
+                    keyboardType: TextInputType.datetime,
+                  ),
+                ]),
+
+                const SizedBox(height: 24),
+                _buildSectionHeader("Contact Info"),
+                const SizedBox(height: 16),
+                _buildCardContainer([
+                  _buildTextField(
+                    controller: _emailController,
+                    label: "Email",
+                    icon: Icons.email_outlined,
+                    isLast: false,
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  _buildTextField(
+                    controller: _phoneController,
+                    label: "Phone",
+                    icon: Icons.phone_outlined,
+                    isLast: false,
+                    keyboardType: TextInputType.phone,
+                  ),
+                  _buildTextField(
+                    controller: _locationController,
+                    label: "Location",
+                    icon: Icons.location_on_outlined,
+                    isLast: true,
+                  ),
+                ]),
+
+                const SizedBox(height: 24),
+                _buildSectionHeader("About Me"),
+                const SizedBox(height: 16),
+                _buildCardContainer([
+                  _buildTextField(
+                    controller: _notesController,
+                    label: "Personal Notes",
+                    icon: Icons.edit_note_outlined,
+                    isLast: true,
+                    maxLines: 4,
+                  ),
+                ]),
+                const SizedBox(height: 40),
+              ],
             ),
           ),
-          floatingActionButton: null,
         );
       },
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12, left: 4),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          title.toUpperCase(),
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.5),
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
-          ),
+      padding: const EdgeInsets.only(left: 4),
+      child: Text(
+        title.toUpperCase(),
+        style: GoogleFonts.robotoFlex(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.2,
+          color: ColorConstant.primary,
         ),
       ),
     );
   }
 
-  Widget _buildField(
-    String label,
-    TextEditingController controller, {
-    int maxLines = 1,
-    TextInputType? keyboardType,
-    IconData? icon,
-  }) {
-    final isReadOnly = !_isEditing;
-    
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Container(
-        decoration: BoxDecoration(
-          color: isReadOnly 
-              ? Colors.white.withOpacity(0.05) 
-              : Colors.white.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isReadOnly 
-                ? Colors.transparent 
-                : Colors.white.withOpacity(0.2),
-          ),
-        ),
-        child: TextField(
-          controller: controller,
-          readOnly: isReadOnly,
-          maxLines: maxLines,
-          keyboardType: keyboardType,
-          textCapitalization: TextCapitalization.words,
-          style: const TextStyle(color: Colors.white, fontSize: 16),
-          decoration: InputDecoration(
-            labelText: label,
-            labelStyle: TextStyle(
-              color: isReadOnly 
-                  ? Colors.white.withOpacity(0.5) 
-                  : Colors.white.withOpacity(0.8),
-            ),
-            prefixIcon: icon != null 
-                ? Icon(
-                    icon, 
-                    color: isReadOnly 
-                        ? Colors.white.withOpacity(0.4) 
-                        : const Color(0xFF4E8BFF),
-                    size: 22,
-                  ) 
-                : null,
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            isDense: true,
-          ),
+  Widget _buildCardContainer(List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: ColorConstant.surfaceContainer,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: ColorConstant.outlineVariant.withOpacity(0.2),
         ),
       ),
+      child: Column(
+        children: children,
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool isLast = false,
+    int maxLines = 1,
+    TextInputType? keyboardType,
+  }) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 12, right: 16),
+                child: Icon(
+                  icon,
+                  size: 24,
+                  color: _isEditing
+                      ? ColorConstant.primary
+                      : ColorConstant.onSurfaceVariant,
+                ),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  readOnly: !_isEditing,
+                  enabled: _isEditing,
+                  maxLines: maxLines,
+                  keyboardType: keyboardType,
+                  style: GoogleFonts.robotoFlex(
+                    fontSize: 16,
+                    color: ColorConstant.onSurface,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: label,
+                    labelStyle: GoogleFonts.robotoFlex(
+                      color: ColorConstant.onSurfaceVariant,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    isDense: true,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (!isLast)
+          Divider(
+            height: 1,
+            indent: 56,
+            endIndent: 16,
+            color: ColorConstant.outlineVariant.withOpacity(0.2),
+          ),
+      ],
     );
   }
 }

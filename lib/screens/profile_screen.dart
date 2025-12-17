@@ -1,12 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 // Keep your existing imports
 import 'calm_kit_screen.dart';
 import 'contact_screen.dart';
-import 'emergency_screen.dart';
-import 'dream_review_screen.dart';
 import 'safety_plan_screen.dart';
 import 'user_information_screen.dart';
 
@@ -20,138 +17,16 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final ScrollController _scrollController = ScrollController();
 
-  // Logic variables
-  double _pullDistance = 0.0;
-  final double _triggerThreshold = 70.0; // Distance to pull to trigger (reduced for easier activation)
-  bool _isTriggered = false;
-
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
   }
 
-  // Simplified Notification Handler
-  bool _handleScrollNotification(ScrollNotification notification) {
-    // Handle OverscrollNotification (from BouncingScrollPhysics)
-    if (notification is OverscrollNotification) {
-      // overscroll is negative when pulling down past bottom
-      if (notification.overscroll < 0) {
-        final pullAmount = -notification.overscroll;
-        setState(() {
-          _pullDistance = pullAmount;
-        });
-
-        // Haptic feedback as you pull
-        final previousStep = ((_pullDistance - pullAmount) / 20).floor();
-        final currentStep = (pullAmount / 20).floor();
-        if (currentStep != previousStep && currentStep > 0) {
-          HapticFeedback.selectionClick();
-        }
-
-        // Trigger immediately when threshold is reached (don't wait for release)
-        if (pullAmount >= _triggerThreshold && !_isTriggered) {
-          _triggerEmergency();
-        }
-      } else if (notification.overscroll > 0 && _pullDistance > 0) {
-        // User released or scrolled back up - reset
-        setState(() {
-          _pullDistance = 0.0;
-        });
-      }
-    }
-
-    // Also check ScrollUpdateNotification as fallback
-    if (notification is ScrollUpdateNotification) {
-      final metrics = notification.metrics;
-      final overscroll = metrics.pixels - metrics.maxScrollExtent;
-
-      if (overscroll > 0) {
-        setState(() {
-          _pullDistance = overscroll;
-        });
-
-        // Haptic feedback as you pull
-        final currentStep = (overscroll / 20).floor();
-        if (currentStep > 0 && overscroll.toInt() % 20 == 0) {
-          HapticFeedback.selectionClick();
-        }
-
-        // Trigger immediately when threshold is reached
-        if (overscroll >= _triggerThreshold && !_isTriggered) {
-          _triggerEmergency();
-        }
-      } else if (_pullDistance > 0 && overscroll <= 0) {
-        // Reset if scrolled back up
-        setState(() {
-          _pullDistance = 0.0;
-        });
-      }
-    }
-
-    // Handle Release (backup trigger)
-    if (notification is ScrollEndNotification) {
-      if (_pullDistance >= _triggerThreshold && !_isTriggered) {
-        _triggerEmergency();
-      } else if (_pullDistance < _triggerThreshold) {
-        // Reset if not pulled far enough
-        setState(() {
-          _pullDistance = 0.0;
-        });
-      }
-    }
-
-    return false;
-  }
-
-  Future<void> _triggerEmergency() async {
-    setState(() => _isTriggered = true);
-
-    // Distinct Emergency Haptics
-    HapticFeedback.heavyImpact();
-    await Future.delayed(const Duration(milliseconds: 100));
-    HapticFeedback.heavyImpact();
-
-    if (!mounted) return;
-
-    // Navigate immediately
-    await Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            const EmergencyScreen(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          // Slide up from bottom animation (Urgent feel)
-          const begin = Offset(0.0, 1.0);
-          const end = Offset.zero;
-          const curve = Curves.easeOutExpo;
-          var tween = Tween(
-            begin: begin,
-            end: end,
-          ).chain(CurveTween(curve: curve));
-          return SlideTransition(
-            position: animation.drive(tween),
-            child: child,
-          );
-        },
-      ),
-    );
-
-    // Reset state when they return
-    if (mounted) {
-      setState(() {
-        _isTriggered = false;
-        _pullDistance = 0.0;
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     const Color navy = Color(0xFF081944);
     const EdgeInsets pagePadding = EdgeInsets.symmetric(horizontal: 16.0);
-
-    // Calculate opacity for the indicator based on pull distance
-    double progress = (_pullDistance / _triggerThreshold).clamp(0.0, 1.0);
 
     return Scaffold(
       body: Container(
@@ -167,8 +42,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         child: SafeArea(
-          child: NotificationListener<ScrollNotification>(
-          onNotification: _handleScrollNotification,
           child: CustomScrollView(
             controller: _scrollController,
             // IMPORTANT: BouncingScrollPhysics is required for this effect to work on Android
@@ -304,93 +177,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ),
-
-              // --- NEW EMERGENCY PULL FOOTER ---
-              SliverToBoxAdapter(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 100),
-                  height: 120, // Fixed height area for the gesture visual
-                  padding: const EdgeInsets.only(top: 20),
-                  child: Opacity(
-                    opacity: _pullDistance > 5
-                        ? 1.0
-                        : 0.0, // Hide if not pulling
-                    child: Column(
-                      children: [
-                        // Dynamic Icon
-                        Icon(
-                          progress >= 1.0
-                              ? Icons.gpp_good
-                              : Icons.keyboard_double_arrow_up,
-                          color: progress >= 1.0
-                              ? Colors.redAccent
-                              : Colors.white54,
-                          size: 32 + (progress * 10), // Icon grows
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Dynamic Text
-                        Text(
-                          progress >= 1.0
-                              ? 'RELEASE FOR HELP'
-                              : 'PULL UP FOR EMERGENCY',
-                          style: TextStyle(
-                            color: progress >= 1.0
-                                ? Colors.redAccent
-                                : Colors.white54,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.2,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-
-                        // Progress Bar
-                        Container(
-                          width: 200,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: Colors.white12,
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Stack(
-                            children: [
-                              FractionallySizedBox(
-                                widthFactor: progress,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: progress >= 1.0
-                                        ? Colors.red
-                                        : Colors.redAccent.withOpacity(0.5),
-                                    borderRadius: BorderRadius.circular(3),
-                                    boxShadow: progress >= 1.0
-                                        ? [
-                                            BoxShadow(
-                                              color: Colors.red.withOpacity(
-                                                0.6,
-                                              ),
-                                              blurRadius: 10,
-                                              spreadRadius: 2,
-                                            ),
-                                          ]
-                                        : null,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
               // Add extra padding at the bottom so the scroll view has room to bounce
-              const SliverPadding(padding: EdgeInsets.only(bottom: 1)),
+              const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
             ],
           ),
         ),
-      ),
       ),
     );
   }

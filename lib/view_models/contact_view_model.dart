@@ -55,6 +55,21 @@ class ContactViewModel extends ChangeNotifier {
     }
   }
 
+  Future<bool> updateContact(SupportContact contact) async {
+    try {
+      await _database.updateSupportContact(contact);
+      final index = _contacts.indexWhere((c) => c.id == contact.id);
+      if (index != -1) {
+        _contacts[index] = contact;
+        notifyListeners();
+      }
+      return true;
+    } catch (error, stackTrace) {
+      debugPrint('Failed to update contact: $error\n$stackTrace');
+      return false;
+    }
+  }
+
   Future<bool> removeContact(SupportContact contact) async {
     final index = _contacts.indexWhere((element) => element.id == contact.id);
     if (index == -1) return true;

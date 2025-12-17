@@ -13,7 +13,7 @@ class GeminiService {
   // Singleton instance
   GeminiService._internal()
     : _apiKey = const String.fromEnvironment('GEMINI_API_KEY'),
-      _modelName = 'gemini-2.5-flash';
+      _modelName = 'gemini-2.5-flash-lite';
 
   static final GeminiService instance = GeminiService._internal();
 

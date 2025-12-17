@@ -13,12 +13,13 @@ import '../models/video_track.dart';
 import '../models/article_recommendation.dart';
 import '../models/chat_session.dart';
 import '../models/chat_message.dart';
+import '../models/recommendation_feedback.dart';
 
 class LocalDatabase {
   LocalDatabase._();
 
   static const _dbName = StringConstant.dbName;
-  static const _dbVersion = 4;
+  static const _dbVersion = 5;
 
   static final LocalDatabase instance = LocalDatabase._();
 
@@ -184,6 +185,19 @@ class LocalDatabase {
         FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS recommendation_feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        recommendation_id TEXT NOT NULL,
+        type TEXT NOT NULL,
+        rating INTEGER NOT NULL,
+        comment TEXT,
+        related_dream_id TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        UNIQUE(recommendation_id, related_dream_id)
+      )
+    ''');
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -325,6 +339,19 @@ class LocalDatabase {
         FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS recommendation_feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        recommendation_id TEXT NOT NULL,
+        type TEXT NOT NULL,
+        rating INTEGER NOT NULL,
+        comment TEXT,
+        related_dream_id TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        UNIQUE(recommendation_id, related_dream_id)
+      )
+    ''');
   }
 
   // User profile -------------------------------------------------------------
@@ -379,6 +406,19 @@ class LocalDatabase {
       StringConstant.supportContactsTable,
       where: 'id = ?',
       whereArgs: [id],
+    );
+  }
+
+  Future<void> updateSupportContact(SupportContact contact) async {
+    final db = await database;
+    await _ensureTablesExist(db);
+    // Don't update created_at, usually
+    final map = contact.toMap()..remove('created_at');
+    await db.update(
+      StringConstant.supportContactsTable,
+      map,
+      where: 'id = ?',
+      whereArgs: [contact.id],
     );
   }
 
@@ -455,6 +495,37 @@ class LocalDatabase {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  Future<void> updateSafetyPlan(SafetyPlan plan) async {
+    final db = await database;
+    await _ensureTablesExist(db);
+    return db.transaction((txn) async {
+      // Update plan title
+      final planMap = plan.toMap()..remove('created_at')..remove('id');
+      await txn.update(
+        StringConstant.safetyPlansTable,
+        planMap,
+        where: 'id = ?',
+        whereArgs: [plan.id],
+      );
+
+      // Replace steps
+      await txn.delete(
+        StringConstant.safetyPlanStepsTable,
+        where: 'plan_id = ?',
+        whereArgs: [plan.id],
+      );
+
+      for (var index = 0; index < plan.steps.length; index++) {
+        final step = plan.steps[index];
+        await txn.insert(
+          StringConstant.safetyPlanStepsTable,
+          {'plan_id': plan.id, 'step_order': index, 'description': step},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
   }
 
   // Calm resources ----------------------------------------------------------
@@ -814,5 +885,36 @@ class LocalDatabase {
       orderBy: 'created_at ASC',
     );
     return result.map(ChatMessage.fromMap).toList();
+  }
+
+  // Recommendation Feedback ------------------------------------------------
+  Future<void> saveFeedback(RecommendationFeedback feedback) async {
+    final db = await database;
+    await db.insert(
+      'recommendation_feedback',
+      feedback.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<bool> hasFeedback(String recommendationId, String relatedDreamId) async {
+    final db = await database;
+    final result = await db.query(
+      'recommendation_feedback',
+      where: 'recommendation_id = ? AND related_dream_id = ?',
+      whereArgs: [recommendationId, relatedDreamId],
+    );
+    return result.isNotEmpty;
+  }
+
+  Future<List<RecommendationFeedback>> fetchFeedbackForDream(String dreamId) async {
+    final db = await database;
+    final result = await db.query(
+      'recommendation_feedback',
+      where: 'related_dream_id = ?',
+      whereArgs: [dreamId],
+      orderBy: 'timestamp DESC',
+    );
+    return result.map(RecommendationFeedback.fromMap).toList();
   }
 }

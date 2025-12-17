@@ -50,6 +50,21 @@ class SafetyPlanViewModel extends ChangeNotifier {
     }
   }
 
+  Future<bool> updatePlan(SafetyPlan plan) async {
+    try {
+      await _database.updateSafetyPlan(plan);
+      final index = _plans.indexWhere((p) => p.id == plan.id);
+      if (index != -1) {
+        _plans[index] = plan;
+        notifyListeners();
+      }
+      return true;
+    } catch (error, stackTrace) {
+      debugPrint('Failed to update safety plan: $error\n$stackTrace');
+      return false;
+    }
+  }
+
   Future<bool> deletePlan(SafetyPlan plan) async {
     final index = _plans.indexWhere((element) => element.id == plan.id);
     if (index == -1) return true;

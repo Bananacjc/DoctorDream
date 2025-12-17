@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../data/models/article_recommendation.dart';
 import '../data/models/music_track.dart';
 import '../data/models/video_track.dart';
@@ -8,6 +9,8 @@ import '../data/models/dream_analysis.dart';
 import '../data/local/local_database.dart';
 import '../data/services/gemini_service.dart';
 import '../data/services/youtube_audio_service.dart';
+import '../data/models/recommendation_feedback.dart';
+import '../widgets/feedback_popup.dart';
 import 'article_screen.dart';
 import 'song_player_screen.dart';
 import 'video_player_screen.dart';
@@ -49,6 +52,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
   // Latest dream and analysis for personalized recommendations
   DreamEntry? _latestDream;
   DreamAnalysis? _latestDreamAnalysis;
+  List<RecommendationFeedback> _currentDreamFeedback = [];
 
   // Best-for-you pick derived from latest dream
   MusicTrack? _bestMusic;
@@ -96,11 +100,22 @@ class _RecommendScreenState extends State<RecommendScreen> {
   Future<void> _loadLatestDreamAnalysis() async {
     try {
       final result = await LocalDatabase.instance.getLatestDreamWithAnalysis();
-      if (result != null && mounted) {
-        setState(() {
-          _latestDream = result['dream'] as DreamEntry?;
-          _latestDreamAnalysis = result['analysis'] as DreamAnalysis?;
-        });
+      if (result != null) {
+        final dream = result['dream'] as DreamEntry?;
+        final analysis = result['analysis'] as DreamAnalysis?;
+        
+        List<RecommendationFeedback> feedback = [];
+        if (dream != null) {
+          feedback = await LocalDatabase.instance.fetchFeedbackForDream(dream.dreamID);
+        }
+
+        if (mounted) {
+          setState(() {
+            _latestDream = dream;
+            _latestDreamAnalysis = analysis;
+            _currentDreamFeedback = feedback;
+          });
+        }
       }
     } catch (e) {
       print('Error loading latest dream analysis: $e');
@@ -123,6 +138,18 @@ class _RecommendScreenState extends State<RecommendScreen> {
       buffer.writeln('\nBased on my latest dream:');
       buffer.writeln('Dream Title: ${_latestDream!.dreamTitle}');
       buffer.writeln('Dream Content: ${_latestDream!.dreamContent}');
+    }
+    
+    // Add feedback context if available
+    if (_currentDreamFeedback.isNotEmpty) {
+      buffer.writeln('\nMy feedback on previous recommendations for this dream:');
+      for (final fb in _currentDreamFeedback) {
+        buffer.writeln('- I rated "${fb.recommendationId}" ${fb.rating}/5 stars.');
+        if (fb.comment != null && fb.comment!.isNotEmpty) {
+          buffer.writeln('  Comment: "${fb.comment}"');
+        }
+      }
+      buffer.writeln('Please use this feedback to refine new recommendations.');
     }
     
     return buffer.toString().trim();
@@ -603,25 +630,132 @@ class _RecommendScreenState extends State<RecommendScreen> {
     }
   }
 
+  /// Check if feedback is needed and show popup
+  Future<void> _checkAndShowFeedback({
+    required String recommendationId,
+    required String type,
+    required String title,
+  }) async {
+    if (_latestDream == null) return;
+    final dreamId = _latestDream!.dreamID;
+
+    // Check if feedback already exists
+    final hasFeedback = await LocalDatabase.instance.hasFeedback(
+      recommendationId,
+      dreamId,
+    );
+
+    if (hasFeedback) return;
+
+    if (!mounted) return;
+
+    FocusScope.of(context).unfocus();
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
+
+    // Show feedback popup
+    await showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierLabel: "Feedback",
+      barrierColor: Colors.black.withOpacity(0.8),
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return ScaleTransition(
+          scale: CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutBack,
+          ),
+          child: FadeTransition(
+            opacity: animation,
+            child: FeedbackPopup(
+              title: title,
+              onSubmit: (rating, comment) async {
+                final feedback = RecommendationFeedback(
+                  recommendationId: recommendationId,
+                  type: type,
+                  rating: rating,
+                  comment: comment,
+                  relatedDreamId: dreamId,
+                  timestamp: DateTime.now(),
+                );
+
+                await LocalDatabase.instance.saveFeedback(feedback);
+
+                // Refresh feedback list for context
+                final newFeedbackList =
+                    await LocalDatabase.instance.fetchFeedbackForDream(dreamId);
+                if (mounted) {
+                  setState(() {
+                    _currentDreamFeedback = newFeedbackList;
+                  });
+                }
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   /// Navigation to song player screen for specific music clicked
-  void _openSongPlayer(MusicTrack track) {
-    Navigator.of(
+  void _openSongPlayer(MusicTrack track) async {
+    // Dismiss keyboard if open
+    FocusScope.of(context).unfocus();
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
+
+    await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => SongPlayerScreen(track: track)));
+
+    if (mounted) {
+      // Ensure focus is cleared when returning
+      FocusScope.of(context).unfocus();
+      SystemChannels.textInput.invokeMethod('TextInput.hide');
+
+      // Use title + artist as unique ID for music
+      final recId = '${track.title} - ${track.artist}';
+      _checkAndShowFeedback(
+        recommendationId: recId,
+        type: 'music',
+        title: track.title,
+      );
+    }
   }
 
   void _openArticle(ArticleRecommendation article) {
+    // Dismiss keyboard if open
+    FocusScope.of(context).unfocus();
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
+
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => ArticleScreen(article: article)));
   }
 
-  void _openVideo(VideoTrack track) {
-    Navigator.of(context).push(
+  void _openVideo(VideoTrack track) async {
+    // Dismiss keyboard if open
+    FocusScope.of(context).unfocus();
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
+
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => VideoPlayerScreen(track: track),
       ),
     );
+
+    if (mounted) {
+      // Ensure focus is cleared when returning
+      FocusScope.of(context).unfocus();
+      SystemChannels.textInput.invokeMethod('TextInput.hide');
+
+      // Use videoId or title+channel as ID
+      final recId = track.videoId ?? '${track.title} - ${track.channel ?? ""}';
+      _checkAndShowFeedback(
+        recommendationId: recId,
+        type: 'video',
+        title: track.title,
+      );
+    }
   }
 
   List<MusicTrack> _parseGeminiTracks(String response) {
@@ -671,32 +805,34 @@ class _RecommendScreenState extends State<RecommendScreen> {
     const Color navy = Color(0xFF081944);
     const Color lightNavy = Color(0xFF0D2357);
     // const Color pillBg = Color(0xFF2E3D6B); // reserved for future use
-    const Color accent = Color(0xFFB7B9FF);
     const EdgeInsets pagePadding = EdgeInsets.symmetric(horizontal: 16.0);
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF081944), // navy
-              Color(0xFF0D2357), // slightly lighter navy
-              Color(0xFF152C69), // even lighter
-            ],
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF081944), // navy
+                Color(0xFF0D2357), // slightly lighter navy
+                Color(0xFF152C69), // even lighter
+              ],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: RefreshIndicator(
-          color: Colors.white,
-          backgroundColor: navy,
-          onRefresh: _handlePullToRefresh,
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
+          child: SafeArea(
+            child: RefreshIndicator(
+              color: Colors.white,
+              backgroundColor: navy,
+              onRefresh: _handlePullToRefresh,
+              child: CustomScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
                   padding: pagePadding.copyWith(top: 12.0, bottom: 8.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -974,7 +1110,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
           ),
         ),
       ),
-    ));
+    )));
   }
 }
 
@@ -1940,71 +2076,6 @@ class _Placeholder extends StatelessWidget {
   }
 }
 
-class _CardGrid extends StatelessWidget {
-  const _CardGrid();
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      childAspectRatio: 1,
-      children: List.generate(
-        4,
-        (index) => Container(
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF2E4A7A), Color(0xFF1A3A5F)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.1),
-              width: 1,
-            ),
-          ),
-          child: const Center(child: _PlayGlyph()),
-        ),
-      ),
-    );
-  }
-}
-
-class _CardRow extends StatelessWidget {
-  const _CardRow();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 195,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: 4,
-        padding: EdgeInsets.zero,
-        separatorBuilder: (_, __) => const SizedBox(width: 16),
-        itemBuilder: (context, index) {
-          return Container(
-            width: 150,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.1),
-                width: 1,
-              ),
-            ),
-            child: const Center(child: _PlayGlyph()),
-          );
-        },
-      ),
-    );
-  }
-}
-
 /// Best for you card widget
 class _BestForYouCard extends StatelessWidget {
   final MusicTrack? music;
@@ -2027,7 +2098,7 @@ class _BestForYouCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool isMusic = music != null;
     final bool isVideo = !isMusic && video != null;
-    final bool isArticle = !isMusic && !isVideo && article != null;
+    // final bool isArticle = !isMusic && !isVideo && article != null;
 
     final String title = isMusic
         ? music!.title
