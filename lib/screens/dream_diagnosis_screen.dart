@@ -1,14 +1,17 @@
-import 'package:doctor_dream/screens/contact_screen.dart';
-import 'package:doctor_dream/screens/safety_plan_screen.dart';
+import 'package:doctor_dream/screens/safety_plan_execution_screen.dart';
 import 'package:doctor_dream/widgets/dream_diagnosis_item.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../constants/color_constant.dart';
+import '../view_models/contact_view_model.dart';
 import '../view_models/dream_diagnosis_view_model.dart';
+import '../view_models/safety_plan_view_model.dart';
+import '../widgets/contact_selection_overlay.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_progress_indicator.dart';
 import '../widgets/custom_prompt_dialog.dart';
+import '../widgets/safety_plan_selection_overlay.dart';
 import 'dream_edit_screen.dart';
 import 'hotline_screen.dart';
 import '../widgets/transition_overlay.dart';
@@ -186,23 +189,50 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
                             subtitle: "Your step-by-step guide",
                             icon: Icons.shield_outlined,
                             color: ColorConstant.secondary,
-                            onTap: () {
-                              Navigator.pop(context);
-                              Navigator.push(
-                                context,
-                                PageRouteBuilder(
-                                  pageBuilder: (context, animation, secondaryAnimation) =>
-                                  TransitionOverlay(
-                                nextScreen: const SafetyPlanScreen(),
-                                message: "Take a deep breath.\nLet's follow your plan together.",
-                                icon: Icons.shield_outlined,
-                              ),
-                              transitionsBuilder:
-                                  (context, animation, secondaryAnimation, child) {
-                                return FadeTransition(opacity: animation, child: child);
-                              },
+                            onTap: () async {
+                              final viewModel = SafetyPlanViewModel();
+                              await viewModel.loadPlans();
+                              
+                              if (!context.mounted) {
+                                viewModel.dispose();
+                                return;
+                              }
+
+                              if (viewModel.plans.isEmpty) {
+                                viewModel.dispose();
+                                // Show message that no plans exist
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      "No safety plans yet. Create one in Settings.",
+                                      style: GoogleFonts.robotoFlex(),
+                                    ),
+                                    backgroundColor: ColorConstant.surfaceContainer,
+                                  ),
+                                );
+                                return;
+                              }
+
+                              // Show overlay with plan selection (on top of three-button overlay)
+                              await showDialog(
+                                context: context,
+                                barrierDismissible: true,
+                                barrierColor: Colors.transparent,
+                                builder: (context) => SafetyPlanSelectionOverlay(
+                                  viewModel: viewModel,
+                                  onPlanSelected: (plan) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            SafetyPlanExecutionScreen(plan: plan),
+                                      ),
+                                    );
+                                  },
                                 ),
                               );
+                              // Dispose viewModel after dialog closes
+                              viewModel.dispose();
                             },
                           ),
                         ),
@@ -231,23 +261,44 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
                             subtitle: "Connect with your support circle",
                             icon: Icons.phone_in_talk_outlined,
                             color: ColorConstant.primary,
-                            onTap: () {
-                              Navigator.pop(context);
-                              Navigator.push(
-                                context,
-                                PageRouteBuilder(
-                              pageBuilder: (context, animation, secondaryAnimation) =>
-                                  TransitionOverlay(
-                                nextScreen: const ContactScreen(),
-                                message: "You are loved.\nReach out to someone you trust.",
-                                icon: Icons.favorite_outline,
-                              ),
-                              transitionsBuilder:
-                                  (context, animation, secondaryAnimation, child) {
-                                return FadeTransition(opacity: animation, child: child);
-                                },
+                            onTap: () async {
+                              final viewModel = ContactViewModel();
+                              await viewModel.loadContacts();
+                              
+                              if (!context.mounted) {
+                                viewModel.dispose();
+                                return;
+                              }
+
+                              if (viewModel.contacts.isEmpty) {
+                                viewModel.dispose();
+                                // Show message that no contacts exist
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      "No contacts yet. Add some in Settings.",
+                                      style: GoogleFonts.robotoFlex(),
+                                    ),
+                                    backgroundColor: ColorConstant.surfaceContainer,
+                                  ),
+                                );
+                                return;
+                              }
+
+                              // Show overlay with contact selection (on top of three-button overlay)
+                              await showDialog(
+                                context: context,
+                                barrierDismissible: true,
+                                barrierColor: Colors.transparent,
+                                builder: (context) => ContactSelectionOverlay(
+                                  viewModel: viewModel,
+                                  onContactSelected: (contact) {
+                                    // Contact call is handled in the overlay
+                                  },
                                 ),
                               );
+                              // Dispose viewModel after dialog closes
+                              viewModel.dispose();
                             },
                           ),
                         ),
@@ -277,7 +328,6 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
                             icon: Icons.medical_services_outlined,
                             color: Colors.orange,
                             onTap: () {
-                              Navigator.pop(context);
                               Navigator.push(
                                 context,
                                 PageRouteBuilder(

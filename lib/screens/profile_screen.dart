@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 // Keep your existing imports
 import 'calm_kit_screen.dart';
 import 'contact_screen.dart';
-import 'safety_plan_screen.dart';
+import 'manage_safety_plans_screen.dart';
 import 'user_information_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -166,10 +166,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: 12),
                       _ActionItem(
                         icon: Icons.add_circle_outline,
-                        title: 'Safety Plan',
+                        title: 'Manage Safety Plans',
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => const SafetyPlanScreen(),
+                            builder: (_) => const ManageSafetyPlansScreen(),
                           ),
                         ),
                       ),
