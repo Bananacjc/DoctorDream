@@ -28,6 +28,10 @@ ${userInfoText.isNotEmpty ? 'User Information:\n$userInfoText\n' : ''}
     return '''
   $basePrompt
   You are now in a general conversation mode. Respond naturally and empathetically to the user's messages, keeping their emotional state and context in mind.
+  IMPORTANT:
+  - I need you to keep your responses concise, not too long.
+  - Aim for about 3–6 sentences (1-2 short paragraph) per reply.
+  - Avoid repeating the same ideas or giving very long explanations.
   ''';
   }
 

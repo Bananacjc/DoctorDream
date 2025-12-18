@@ -186,8 +186,8 @@ class _SafetyPlanScreenState extends State<SafetyPlanScreen> {
                           style: GoogleFonts.robotoFlex(
                             fontSize: 16,
                             color: ColorConstant.onSurfaceVariant,
-                          ),
                         ),
+                    ),
                         const SizedBox(height: 24),
                         // Title Input
                     TextField(
@@ -223,7 +223,7 @@ class _SafetyPlanScreenState extends State<SafetyPlanScreen> {
                                 color: ColorConstant.outlineVariant
                                     .withOpacity(0.1),
                               ),
-                            ),
+                        ),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -676,7 +676,7 @@ class _SafetyPlanScreenState extends State<SafetyPlanScreen> {
         side: BorderSide(
           color: ColorConstant.outlineVariant.withOpacity(0.2),
         ),
-      ),
+          ),
       child: InkWell(
         onTap: () => _startPlan(plan),
         borderRadius: BorderRadius.circular(16),
@@ -738,8 +738,8 @@ class _SafetyPlanScreenState extends State<SafetyPlanScreen> {
                             SizedBox(width: 12),
                             Text('Edit'),
                           ],
-                        ),
-                      ),
+                                      ),
+                                    ),
                       const PopupMenuItem<String>(
                         value: 'delete',
                         child: Row(
@@ -748,15 +748,15 @@ class _SafetyPlanScreenState extends State<SafetyPlanScreen> {
                             SizedBox(width: 12),
                             Text('Delete', style: TextStyle(color: Colors.red)),
                           ],
-                        ),
-                      ),
+                                          ),
+                                        ),
                     ],
                   ),
                   const SizedBox(width: 8),
                   Icon(Icons.play_circle_fill_rounded,
                       size: 40, color: ColorConstant.primary),
                 ],
-              ),
+                                            ),
               if (plan.steps.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Container(
@@ -773,8 +773,8 @@ class _SafetyPlanScreenState extends State<SafetyPlanScreen> {
                           color: ColorConstant.onSurfaceVariant,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                                                          ),
+                                                        ),
                       const SizedBox(width: 8),
                                                         Expanded(
                                                           child: Text(
@@ -792,7 +792,7 @@ class _SafetyPlanScreenState extends State<SafetyPlanScreen> {
                                                   ),
                                               ],
             ],
-          ),
+                                            ),
         ),
       ),
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../data/models/article_recommendation.dart';
 import '../data/models/music_track.dart';
 import '../data/models/video_track.dart';
@@ -46,8 +47,8 @@ class _RecommendScreenState extends State<RecommendScreen> {
   bool _isPromptSubmitting = false;
   bool _hasTypedPrompt = false;
 
-  // User information (emotional state, and other details) - can be updated from other screens or user input
-  final UserInfo _userInfo = UserInfo.defaultValues();
+  // User information (emotional state, and other details)
+  UserInfo _userInfo = UserInfo.defaultValues();
 
   // Latest dream and analysis for personalized recommendations
   DreamEntry? _latestDream;
@@ -90,6 +91,14 @@ class _RecommendScreenState extends State<RecommendScreen> {
   }
 
   Future<void> _initData() async {
+    // Load real user profile first for personalized prompts
+    try {
+      final profile = await LocalDatabase.instance.fetchUserProfile();
+      _userInfo = UserInfo.fromUserProfile(profile);
+    } catch (_) {
+      _userInfo = UserInfo.defaultValues();
+    }
+
     await _loadLatestDreamAnalysis();
     if (mounted) {
       _fetchRecommendations();
@@ -630,22 +639,33 @@ class _RecommendScreenState extends State<RecommendScreen> {
     }
   }
 
-  /// Check if feedback is needed and show popup
+  /// Check if feedback is needed and show popup based on counter logic
   Future<void> _checkAndShowFeedback({
     required String recommendationId,
     required String type,
     required String title,
   }) async {
     if (_latestDream == null) return;
+    
+    // 1. Check if user has already given feedback for this specific item
     final dreamId = _latestDream!.dreamID;
-
-    // Check if feedback already exists
     final hasFeedback = await LocalDatabase.instance.hasFeedback(
       recommendationId,
       dreamId,
     );
 
     if (hasFeedback) return;
+
+    // 2. Increment session counter
+    final prefs = await SharedPreferences.getInstance();
+    int currentCount = (prefs.getInt('feedback_item_count') ?? 0) + 1;
+    await prefs.setInt('feedback_item_count', currentCount);
+
+    // 3. Only show popup every 4 items (adjust number as needed)
+    if (currentCount % 4 != 0) {
+      print('Feedback skipped. Count: $currentCount');
+      return; 
+    }
 
     if (!mounted) return;
 

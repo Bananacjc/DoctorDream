@@ -11,6 +11,7 @@ import '../widgets/custom_progress_indicator.dart';
 import '../widgets/custom_prompt_dialog.dart';
 import 'dream_edit_screen.dart';
 import 'hotline_screen.dart';
+import '../widgets/transition_overlay.dart';
 
 class DreamDiagnosisScreen extends StatefulWidget {
   const DreamDiagnosisScreen({super.key});
@@ -189,9 +190,17 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
                               Navigator.pop(context);
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const SafetyPlanScreen(),
+                                PageRouteBuilder(
+                                  pageBuilder: (context, animation, secondaryAnimation) =>
+                                  TransitionOverlay(
+                                nextScreen: const SafetyPlanScreen(),
+                                message: "Take a deep breath.\nLet's follow your plan together.",
+                                icon: Icons.shield_outlined,
+                              ),
+                              transitionsBuilder:
+                                  (context, animation, secondaryAnimation, child) {
+                                return FadeTransition(opacity: animation, child: child);
+                              },
                                 ),
                               );
                             },
@@ -226,8 +235,17 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
                               Navigator.pop(context);
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(
-                                  builder: (context) => const ContactScreen(),
+                                PageRouteBuilder(
+                              pageBuilder: (context, animation, secondaryAnimation) =>
+                                  TransitionOverlay(
+                                nextScreen: const ContactScreen(),
+                                message: "You are loved.\nReach out to someone you trust.",
+                                icon: Icons.favorite_outline,
+                              ),
+                              transitionsBuilder:
+                                  (context, animation, secondaryAnimation, child) {
+                                return FadeTransition(opacity: animation, child: child);
+                                },
                                 ),
                               );
                             },
@@ -262,8 +280,18 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
                               Navigator.pop(context);
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(
-                                  builder: (context) => const HotlineScreen(),
+                                PageRouteBuilder(
+                                  pageBuilder: (context, animation, secondaryAnimation) =>
+                                  TransitionOverlay(
+                                    nextScreen: const HotlineScreen(),
+                                    message: "Connecting you to professional help.\nYou are taking a brave step.",
+                                    icon: Icons.medical_services_outlined,
+                                    waitForLoad: true,
+                                  ),
+                                  transitionsBuilder:
+                                  (context, animation, secondaryAnimation, child) {
+                                    return FadeTransition(opacity: animation, child: child);
+                                  },
                                 ),
                               );
                             },

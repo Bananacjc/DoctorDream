@@ -1,5 +1,7 @@
 // lib/models/user_info.dart
 
+import 'user_profile.dart';
+
 class UserInfo {
   final String? name;
   final int? age;
@@ -11,11 +13,44 @@ class UserInfo {
     this.additionalInfo,
   });
 
-  /// Creates a UserInfo with default/hardcoded values for testing
+  /// Neutral defaults (no personal data). Real profile should be mapped via [fromUserProfile].
   factory UserInfo.defaultValues() {
-    return const UserInfo(
-      name: 'Dreamer',
-      age: 25,
+    return const UserInfo();
+  }
+
+  /// Build UserInfo from a persisted [UserProfile].
+  factory UserInfo.fromUserProfile(UserProfile profile) {
+    int? computedAge;
+    if (profile.birthday.isNotEmpty) {
+      final dob = DateTime.tryParse(profile.birthday);
+      if (dob != null) {
+        final now = DateTime.now();
+        var age = now.year - dob.year;
+        if (now.month < dob.month ||
+            (now.month == dob.month && now.day < dob.day)) {
+          age--;
+        }
+        if (age > 0) {
+          computedAge = age;
+        }
+      }
+    }
+
+    final extra = <String, dynamic>{};
+    if (profile.location.isNotEmpty) {
+      extra['Location'] = profile.location;
+    }
+    if (profile.pronouns.isNotEmpty) {
+      extra['Pronouns'] = profile.pronouns;
+    }
+    if (profile.notes.isNotEmpty) {
+      extra['Notes'] = profile.notes;
+    }
+
+    return UserInfo(
+      name: profile.fullName.isNotEmpty ? profile.fullName : null,
+      age: computedAge,
+      additionalInfo: extra.isEmpty ? null : extra,
     );
   }
 

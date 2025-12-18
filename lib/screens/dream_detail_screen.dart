@@ -13,6 +13,7 @@ import '../data/models/user_info.dart';
 import '../widgets/custom_button.dart';
 import 'chat_screen.dart';
 import 'dream_edit_screen.dart';
+import '../data/local/local_database.dart';
 
 class DreamDetailScreen extends StatefulWidget {
   final DreamEntry dreamEntry;
@@ -161,7 +162,8 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
       _isChatStarting = true;
     });
 
-    final dummyUserInfo = UserInfo.defaultValues();
+    final profile = await LocalDatabase.instance.fetchUserProfile();
+    final dummyUserInfo = UserInfo.fromUserProfile(profile);
     String initialMessage;
 
     try {

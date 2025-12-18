@@ -38,7 +38,7 @@ class _ChatScreenState extends State<ChatScreen> {
   List<ChatSession> _sessions = [];
 
   // User information
-  final UserInfo _userInfo = UserInfo.defaultValues();
+  UserInfo _userInfo = UserInfo.defaultValues();
 
   static const Color navy = Color(0xFF081944);
   static const Color accent = Color(0xFFB7B9FF);
@@ -48,11 +48,19 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _loadSessions();
     _initChat();
   }
 
   Future<void> _initChat() async {
+    // Load real user profile for personalization
+    try {
+      final profile = await LocalDatabase.instance.fetchUserProfile();
+      _userInfo = UserInfo.fromUserProfile(profile);
+    } catch (_) {
+      _userInfo = UserInfo.defaultValues();
+    }
+
+    await _loadSessions();
     await _loadSessions();
 
     if (widget.initialMessage != null && widget.isAiInitiated) {

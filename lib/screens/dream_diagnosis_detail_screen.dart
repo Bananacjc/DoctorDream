@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import '../data/local/local_database.dart';
 
 import '../constants/color_constant.dart';
 import '../data/models/dream_diagnosis.dart';
@@ -51,7 +52,8 @@ class _DreamDiagnosisDetailScreenState
       _isChatStarting = true;
     });
 
-    final dummyUserInfo = UserInfo.defaultValues();
+    final profile = await LocalDatabase.instance.fetchUserProfile();
+    final dummyUserInfo = UserInfo.fromUserProfile(profile);
     String initialMessage;
 
     final detailContent = _getDetailContent(rawDiagnosis);

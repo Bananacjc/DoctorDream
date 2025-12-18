@@ -37,9 +37,9 @@ class _ContactScreenState extends State<ContactScreen> {
     );
     if (await canLaunchUrl(launchUri)) {
       await launchUrl(launchUri);
-    } else {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+                } else {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Could not launch $phoneNumber')),
       );
     }
@@ -107,15 +107,15 @@ class _ContactScreenState extends State<ContactScreen> {
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: ColorConstant.onSurface,
-                      ),
-                    ),
+                          ),
+                        ),
                     const SizedBox(height: 8),
                     Text(
                       "Keep your support circle close.",
                       style: GoogleFonts.robotoFlex(
                         fontSize: 16,
                         color: ColorConstant.onSurfaceVariant,
-                      ),
+                        ),
                     ),
                     const SizedBox(height: 24),
                     TextField(
@@ -217,7 +217,7 @@ class _ContactScreenState extends State<ContactScreen> {
                         ),
                         const SizedBox(width: 16),
                         Expanded(
-                          child: ElevatedButton(
+                      child: ElevatedButton(
                             onPressed: () async {
                               if (nameController.text.isNotEmpty &&
                                   phoneController.text.isNotEmpty) {
@@ -257,7 +257,7 @@ class _ContactScreenState extends State<ContactScreen> {
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
-                            ),
+                      ),
                           ),
                         ),
                       ],
@@ -290,7 +290,7 @@ class _ContactScreenState extends State<ContactScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text('Delete', style: TextStyle(color: ColorConstant.error)),
-          ),
+        ),
         ],
       ),
     );
@@ -302,11 +302,11 @@ class _ContactScreenState extends State<ContactScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+        return Scaffold(
       backgroundColor: ColorConstant.surface,
-      appBar: AppBar(
+          appBar: AppBar(
         backgroundColor: ColorConstant.surface,
-        elevation: 0,
+            elevation: 0,
         centerTitle: true,
         title: Text(
           "Support Circle",
@@ -316,14 +316,14 @@ class _ContactScreenState extends State<ContactScreen> {
           ),
         ),
         iconTheme: IconThemeData(color: ColorConstant.onSurface),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
+          ),
+          floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddContactDialog(),
         backgroundColor: ColorConstant.primaryContainer,
         foregroundColor: ColorConstant.onPrimaryContainer,
         icon: const Icon(Icons.person_add),
         label: const Text("Add Contact"),
-      ),
+          ),
       body: ListenableBuilder(
         listenable: _viewModel,
         builder: (context, child) {
@@ -333,13 +333,13 @@ class _ContactScreenState extends State<ContactScreen> {
 
           if (_viewModel.contacts.isEmpty) {
             return Center(
-              child: Column(
+                          child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: [
+                            children: [
                   Icon(Icons.group_outlined,
                       size: 64, color: ColorConstant.outline.withOpacity(0.5)),
                   const SizedBox(height: 16),
-                  Text(
+                              Text(
                     "Your circle is empty",
                     style: GoogleFonts.robotoFlex(
                       fontSize: 18,
@@ -347,16 +347,16 @@ class _ContactScreenState extends State<ContactScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
+                                  Text(
                     "Add trusted contacts to call when you need support.",
-                    textAlign: TextAlign.center,
+                                    textAlign: TextAlign.center,
                     style: GoogleFonts.robotoFlex(
                       fontSize: 14,
                       color: ColorConstant.outline,
-                    ),
-                  ),
-                ],
-              ),
+                                    ),
+                                  ),
+                                ],
+                              ),
             );
           }
 
@@ -364,7 +364,7 @@ class _ContactScreenState extends State<ContactScreen> {
             padding: const EdgeInsets.all(16),
             itemCount: _viewModel.contacts.length,
             separatorBuilder: (context, index) => const SizedBox(height: 16),
-            itemBuilder: (context, index) {
+                                itemBuilder: (context, index) {
               final contact = _viewModel.contacts[index];
               return _buildContactCard(contact);
             },
@@ -387,10 +387,10 @@ class _ContactScreenState extends State<ContactScreen> {
       child: InkWell(
         onTap: () => _makePhoneCall(contact.phone),
         borderRadius: BorderRadius.circular(16),
-        child: Padding(
+                                    child: Padding(
           padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
+                                      child: Row(
+                                        children: [
               Container(
                 width: 50,
                 height: 50,
@@ -399,40 +399,40 @@ class _ContactScreenState extends State<ContactScreen> {
                   shape: BoxShape.circle,
                 ),
                 child: Center(
-                  child: Text(
+                                            child: Text(
                     contact.name.isNotEmpty ? contact.name[0].toUpperCase() : '?',
                     style: GoogleFonts.robotoFlex(
                       fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                                                fontWeight: FontWeight.bold,
                       color: ColorConstant.onPrimaryContainer,
                     ),
-                  ),
-                ),
-              ),
+                                              ),
+                                            ),
+                                          ),
               const SizedBox(width: 16),
-              Expanded(
-                child: Column(
+                                          Expanded(
+                                            child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      contact.name,
+                                              children: [
+                                                Text(
+                                                  contact.name,
                       style: GoogleFonts.robotoFlex(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: ColorConstant.onSurface,
-                      ),
-                    ),
+                                                  ),
+                                                ),
                     if (contact.relationship.isNotEmpty)
-                      Text(
+                                                Text(
                         contact.relationship,
                         style: GoogleFonts.robotoFlex(
                           fontSize: 14,
                           color: ColorConstant.onSurfaceVariant,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
               PopupMenuButton<String>(
                 icon: Icon(Icons.more_vert, color: ColorConstant.onSurfaceVariant),
                 onSelected: (value) {
@@ -446,7 +446,7 @@ class _ContactScreenState extends State<ContactScreen> {
                   const PopupMenuItem<String>(
                     value: 'edit',
                     child: Row(
-                      children: [
+                                            children: [
                         Icon(Icons.edit, size: 20),
                         SizedBox(width: 12),
                         Text('Edit'),
@@ -461,21 +461,21 @@ class _ContactScreenState extends State<ContactScreen> {
                         SizedBox(width: 12),
                         Text('Delete', style: TextStyle(color: Colors.red)),
                       ],
-                    ),
+                                                      ),
                   ),
                 ],
-              ),
+                                              ),
               IconButton(
                 onPressed: () => _makePhoneCall(contact.phone),
                 icon: Icon(Icons.phone_in_talk, color: ColorConstant.secondary),
                 style: IconButton.styleFrom(
                   backgroundColor: ColorConstant.secondaryContainer,
                   padding: const EdgeInsets.all(12),
-                ),
-              ),
-            ],
+                                                ),
+                                              ),
+                                            ],
           ),
-        ),
+                                      ),
       ),
     );
   }

@@ -6,26 +6,28 @@ import 'package:geocoding/geocoding.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../constants/color_constant.dart';
 
 class HotlineScreen extends StatefulWidget {
-  const HotlineScreen({super.key});
+  final bool preload; // Optional: if we want to trigger load earlier
+  const HotlineScreen({super.key, this.preload = false});
 
   @override
   State<HotlineScreen> createState() => _HotlineScreenState();
 }
 
 class _HotlineScreenState extends State<HotlineScreen> {
-  // Loaded from .env
-  late final String _googleApiKey;
+  // Google Maps / Places API key from --dart-define=GOOGLE_MAPS_API_KEY=...
+  static const String _googleApiKey =
+      String.fromEnvironment('GOOGLE_MAPS_API_KEY', defaultValue: '');
   
   bool _isLoading = true;
   String? _error;
   Position? _currentPosition;
-  String _currentCountry = 'Unknown';
-  String _currentCountryCode = 'US'; // Default
-  
+  String _currentCountry = 'United States'; // Default for testing
+  String _currentCountryCode = 'US'; // Default for testing
+  String _sortOption = 'Distance'; // Default sort
+
   // Maps
   GoogleMapController? _mapController;
   Set<Marker> _markers = {};
@@ -39,28 +41,29 @@ class _HotlineScreenState extends State<HotlineScreen> {
     'AU': '13 11 14', // Australia
     'IN': '9152987821', // India
     'SG': '1-767', // Singapore
+    'MY': '15999', // Malaysia (Talian Kasih)
     // Add more as needed
   };
 
   @override
   void initState() {
     super.initState();
-    _loadEnvAndInit();
+    _initLocationAndData();
   }
 
-  Future<void> _loadEnvAndInit() async {
-    try {
-      // Ensure .env is loaded (if not already in main)
-      await dotenv.load(fileName: ".env");
-      _googleApiKey = dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '';
-      _initLocationAndData();
-    } catch (e) {
-      print("Error loading .env: $e");
-      // Fallback or handle error
-      _googleApiKey = '';
-      _initLocationAndData();
-    }
-  }
+  // Future<void> _loadEnvAndInit() async {
+  //   try {
+  //     // Ensure .env is loaded (if not already in main)
+  //     await dotenv.load(fileName: ".env");
+  //     _googleApiKey = dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '';
+  //     _initLocationAndData();
+  //   } catch (e) {
+  //     print("Error loading .env: $e");
+  //     // Fallback or handle error
+  //     _googleApiKey = '';
+  //     _initLocationAndData();
+  //   }
+  // }
 
   Future<void> _initLocationAndData() async {
     setState(() {
@@ -101,8 +104,19 @@ class _HotlineScreenState extends State<HotlineScreen> {
           position.longitude,
         );
         if (placemarks.isNotEmpty) {
-          _currentCountry = placemarks.first.country ?? 'Unknown';
-          _currentCountryCode = placemarks.first.isoCountryCode ?? 'US';
+          // _currentCountry = placemarks.first.country ?? 'Unknown';
+          // _currentCountryCode = placemarks.first.isoCountryCode ?? 'US';
+          
+          if (placemarks.first.country != null) {
+             _currentCountry = placemarks.first.country!;
+          }
+          if (placemarks.first.isoCountryCode != null) {
+             _currentCountryCode = placemarks.first.isoCountryCode!;
+          }
+          
+          print("Fetching clinics with key: $_googleApiKey"); // Debug print
+          await _fetchNearbyClinics(position.latitude, position.longitude);
+
         }
       } catch (e) {
         print('Error getting address: $e');
@@ -110,7 +124,10 @@ class _HotlineScreenState extends State<HotlineScreen> {
 
       // 4. Fetch Clinics (if API Key is set)
       if (_googleApiKey.isNotEmpty && _googleApiKey != 'YOUR_API_KEY_HERE') {
-        await _fetchNearbyClinics(position.latitude, position.longitude);
+        // If not already fetched inside location block (fallback)
+        if (_clinics.isEmpty) {
+           await _fetchNearbyClinics(position.latitude, position.longitude);
+        }
       } else {
          // Mock data for UI testing if no API key
          _clinics = [
@@ -125,7 +142,11 @@ class _HotlineScreenState extends State<HotlineScreen> {
            )
          ];
       }
-
+      
+      // Artificial delay to ensure map/data "feels" ready if it loaded too fast
+      // or to sync with the transition if we wanted to be super precise.
+      // But mainly we just want to ensure we don't show loading spinner.
+      
       setState(() {
         _isLoading = false;
       });
@@ -141,9 +162,12 @@ class _HotlineScreenState extends State<HotlineScreen> {
   }
 
   Future<void> _fetchNearbyClinics(double lat, double lng) async {
-    final radius = 5000; // 5km
-    final type = 'doctor'; // broader than 'psychologist' sometimes better results, filter by keyword
-    final keyword = 'psychologist';
+    final radius = 10000; // Increased to 10km to find more specialized clinics
+    
+    // Using a more complex keyword search to target mental health specifically
+    final keyword = 'mental health clinic|psychiatrist|psychologist|mental health service|psychotherapy';
+    // 'health' type is broader than 'doctor' and often catches clinics
+    final type = 'health'; 
     
     final url = Uri.parse(
       'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
@@ -161,6 +185,16 @@ class _HotlineScreenState extends State<HotlineScreen> {
         if (data['status'] == 'OK') {
           final results = data['results'] as List;
           _clinics = results.map((e) => Clinic.fromJson(e)).toList();
+          
+          // Calculate distances
+          for (var clinic in _clinics) {
+            clinic.distanceFromUser = Geolocator.distanceBetween(
+              lat, lng, 
+              clinic.lat, clinic.lng
+            );
+          }
+          
+          _sortClinics(); // Initial sort
           _updateMarkers();
         } else {
           print('Places API Error: ${data['status']} - ${data['error_message']}');
@@ -169,6 +203,35 @@ class _HotlineScreenState extends State<HotlineScreen> {
     } catch (e) {
       print('Error fetching clinics: $e');
     }
+  }
+
+  void _sortClinics() {
+    setState(() {
+      if (_sortOption == 'Distance') {
+        _clinics.sort((a, b) => (a.distanceFromUser ?? 0).compareTo(b.distanceFromUser ?? 0));
+      } else if (_sortOption == 'Rating') {
+        _clinics.sort((a, b) {
+          // Weighted Rating Formula: (v / (v+m)) * R + (m / (v+m)) * C
+          // v = votes (userRatingsTotal)
+          // m = min votes (let's say 5)
+          // R = Rating
+          // C = Mean vote (let's say 4.0)
+          
+          double getScore(Clinic c) {
+            double v = (c.userRatingsTotal ?? 0).toDouble();
+            double m = 5.0;
+            double R = c.rating ?? 0.0;
+            double C = 4.0;
+            
+            if (v == 0) return 0.0;
+            
+            return (v / (v + m)) * R + (m / (v + m)) * C;
+          }
+          
+          return getScore(b).compareTo(getScore(a)); // Descending
+        });
+      }
+    });
   }
 
   void _updateMarkers() {
@@ -200,7 +263,7 @@ class _HotlineScreenState extends State<HotlineScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final hotline = _hotlines[_currentCountryCode] ?? '112'; // Default emergency
+    final hotline = _hotlines[_currentCountryCode] ?? '988'; // Default US
 
     return Scaffold(
       backgroundColor: ColorConstant.surface,
@@ -248,158 +311,217 @@ class _HotlineScreenState extends State<HotlineScreen> {
                     ),
                   ),
                 )
-              : SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // 1. Hotline Section
-                      Container(
-                        margin: EdgeInsets.all(16),
-                        padding: EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [ColorConstant.secondary, ColorConstant.secondary.withOpacity(0.8)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: ColorConstant.secondary.withOpacity(0.3),
-                              blurRadius: 10,
-                              offset: Offset(0, 4),
+              : CustomScrollView(
+                  slivers: [
+                    // 1. Hotline Section (Scrolls away)
+                    SliverToBoxAdapter(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Container(
+                            margin: EdgeInsets.all(16),
+                            padding: EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [ColorConstant.secondary, ColorConstant.secondary.withOpacity(0.8)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: ColorConstant.secondary.withOpacity(0.3),
+                                  blurRadius: 10,
+                                  offset: Offset(0, 4),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
+                            child: Column(
                               children: [
-                                Icon(Icons.public, color: Colors.white, size: 24),
-                                SizedBox(width: 8),
+                                Row(
+                                  children: [
+                                    Icon(Icons.public, color: Colors.white, size: 24),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      "Crisis Hotline ($_currentCountry)",
+                                      style: GoogleFonts.robotoFlex(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 16),
                                 Text(
-                                  "Crisis Hotline ($_currentCountry)",
+                                  hotline,
                                   style: GoogleFonts.robotoFlex(
                                     color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
+                                    fontSize: 36,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: 16),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () => _makePhoneCall(hotline),
+                                    icon: Icon(Icons.phone),
+                                    label: Text("Call Now"),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      foregroundColor: ColorConstant.secondary,
+                                      padding: EdgeInsets.symmetric(vertical: 12),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                            SizedBox(height: 16),
-                            Text(
-                              hotline,
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+                            child: Text(
+                              "Nearby Clinics",
                               style: GoogleFonts.robotoFlex(
-                                color: Colors.white,
-                                fontSize: 36,
+                                fontSize: 20,
                                 fontWeight: FontWeight.bold,
+                                color: ColorConstant.onSurface,
                               ),
                             ),
-                            SizedBox(height: 16),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: () => _makePhoneCall(hotline),
-                                icon: Icon(Icons.phone),
-                                label: Text("Call Now"),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  foregroundColor: ColorConstant.secondary,
-                                  padding: EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          if (_googleApiKey.isEmpty || _googleApiKey == 'YOUR_API_KEY_HERE')
+                            Container(
+                              margin: EdgeInsets.all(16),
+                              padding: EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.orange.withOpacity(0.5)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                                      SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          "Google Maps API Key Missing",
+                                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange[800]),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    "To see nearby clinics, add `GOOGLE_MAPS_API_KEY=your_key` in the `.env` file at the root of your project.",
+                                    style: TextStyle(color: Colors.orange[900], fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    // 2. Sticky Map Section
+                    if (_currentPosition != null)
+                      SliverPersistentHeader(
+                        pinned: true,
+                        delegate: _StickyMapDelegate(
+                          minHeight: 250.0,
+                          maxHeight: 250.0,
+                          child: Container(
+                            margin: EdgeInsets.symmetric(horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: ColorConstant.surface, // Background to prevent see-through
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(color: Colors.black12, blurRadius: 10),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: GoogleMap(
+                                initialCameraPosition: CameraPosition(
+                                  target: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+                                  zoom: 13,
+                                ),
+                                markers: _markers,
+                                myLocationEnabled: true,
+                                myLocationButtonEnabled: true,
+                                onMapCreated: (controller) => _mapController = controller,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    
+                    // Spacer between map and list
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "Clinics List",
+                              style: GoogleFonts.robotoFlex(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: ColorConstant.onSurface,
+                              ),
+                            ),
+                            Container(
+                              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: ColorConstant.surfaceContainer,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: ColorConstant.outline.withOpacity(0.3)),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: _sortOption,
+                                  icon: Icon(Icons.sort, size: 18, color: ColorConstant.primary),
+                                  style: GoogleFonts.robotoFlex(
+                                    color: ColorConstant.onSurface,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  onChanged: (String? newValue) {
+                                    if (newValue != null) {
+                                      setState(() {
+                                        _sortOption = newValue;
+                                        _sortClinics();
+                                      });
+                                    }
+                                  },
+                                  items: <String>['Distance', 'Rating']
+                                      .map<DropdownMenuItem<String>>((String value) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(value),
+                                    );
+                                  }).toList(),
                                 ),
                               ),
                             ),
                           ],
                         ),
                       ),
+                    ),
 
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-                        child: Text(
-                          "Nearby Clinics",
-                          style: GoogleFonts.robotoFlex(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: ColorConstant.onSurface,
-                          ),
-                        ),
-                      ),
-
-                      if (_googleApiKey.isEmpty || _googleApiKey == 'YOUR_API_KEY_HERE')
-                        Container(
-                          margin: EdgeInsets.all(16),
-                          padding: EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.orange.withOpacity(0.5)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(Icons.warning_amber_rounded, color: Colors.orange),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      "Google Maps API Key Missing",
-                                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange[800]),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                "To see nearby clinics, add `GOOGLE_MAPS_API_KEY=your_key` in the `.env` file at the root of your project.",
-                                style: TextStyle(color: Colors.orange[900], fontSize: 13),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                      // 2. Map Section
-                      if (_currentPosition != null)
-                        Container(
-                          height: 250,
-                          margin: EdgeInsets.symmetric(horizontal: 16),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(color: Colors.black12, blurRadius: 10),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(20),
-                            child: GoogleMap(
-                              initialCameraPosition: CameraPosition(
-                                target: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-                                zoom: 13,
-                              ),
-                              markers: _markers,
-                              myLocationEnabled: true,
-                              myLocationButtonEnabled: true,
-                              onMapCreated: (controller) => _mapController = controller,
-                            ),
-                          ),
-                        ),
-
-                      SizedBox(height: 16),
-
-                      // 3. Clinic List
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: NeverScrollableScrollPhysics(),
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: _clinics.length,
-                        itemBuilder: (context, index) {
+                    // 3. Clinic List
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
                           final clinic = _clinics[index];
                           return Card(
                             elevation: 0,
                             color: ColorConstant.surfaceContainer,
-                            margin: EdgeInsets.only(bottom: 12),
+                            margin: EdgeInsets.only(left: 16, right: 16, bottom: 12),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                             child: ListTile(
                               contentPadding: EdgeInsets.all(16),
@@ -435,6 +557,11 @@ class _HotlineScreenState extends State<HotlineScreen> {
                                           Icon(Icons.star, size: 14, color: Colors.amber),
                                           SizedBox(width: 4),
                                           Text("${clinic.rating} (${clinic.userRatingsTotal})", style: TextStyle(fontSize: 12)),
+                                          if (clinic.distanceFromUser != null)
+                                            Text(
+                                              " • ${(clinic.distanceFromUser! / 1000).toStringAsFixed(1)} km",
+                                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                                            ),
                                         ],
                                       ),
                                     ),
@@ -447,12 +574,47 @@ class _HotlineScreenState extends State<HotlineScreen> {
                             ),
                           );
                         },
+                        childCount: _clinics.length,
                       ),
-                      SizedBox(height: 24),
-                    ],
-                  ),
+                    ),
+                    SliverToBoxAdapter(child: SizedBox(height: 24)),
+                  ],
                 ),
     );
+  }
+}
+
+class _StickyMapDelegate extends SliverPersistentHeaderDelegate {
+  final double minHeight;
+  final double maxHeight;
+  final Widget child;
+
+  _StickyMapDelegate({
+    required this.minHeight,
+    required this.maxHeight,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: ColorConstant.surface, // Ensure background is solid when pinned
+      padding: EdgeInsets.symmetric(vertical: 4), // Small padding to separate from top
+      child: child,
+    );
+  }
+
+  @override
+  double get maxExtent => maxHeight;
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  bool shouldRebuild(_StickyMapDelegate oldDelegate) {
+    return maxHeight != oldDelegate.maxHeight ||
+        minHeight != oldDelegate.minHeight ||
+        child != oldDelegate.child;
   }
 }
 
@@ -464,6 +626,7 @@ class Clinic {
   final String placeId;
   final double? rating;
   final int? userRatingsTotal;
+  double? distanceFromUser; // Calculated after fetch
 
   Clinic({
     required this.name,
@@ -473,6 +636,7 @@ class Clinic {
     required this.placeId,
     this.rating,
     this.userRatingsTotal,
+    this.distanceFromUser,
   });
 
   factory Clinic.fromJson(Map<String, dynamic> json) {

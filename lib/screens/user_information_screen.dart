@@ -157,93 +157,93 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
                         ),
                   tooltip: _isEditing ? 'Save Profile' : 'Edit Profile',
                 ),
-              ),
+                ),
             ],
           ),
           body: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
+                      physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.all(24),
-            child: Column(
+                      child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+                        children: [
                 // Header / Avatar
-                Center(
-                  child: Stack(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
+                          Center(
+                            child: Stack(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
                             color:
                                 ColorConstant.primaryContainer.withOpacity(0.5),
                             width: 2,
-                          ),
-                        ),
-                        child: CircleAvatar(
-                          radius: 50,
+                                    ),
+                                  ),
+                                  child: CircleAvatar(
+                                    radius: 50,
                           backgroundColor: ColorConstant.secondaryContainer,
                           child: Icon(
-                            Icons.person_rounded,
-                            size: 50,
+                                      Icons.person_rounded, 
+                                      size: 50, 
                             color: ColorConstant.onSecondaryContainer,
-                          ),
-                        ),
-                      ),
-                      if (_isEditing)
-                        Positioned(
-                          bottom: 0,
+                                    ),
+                                  ),
+                                ),
+                                if (_isEditing)
+                                  Positioned(
+                                    bottom: 0,
                           right: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
                               color: ColorConstant.primary,
-                              shape: BoxShape.circle,
+                                        shape: BoxShape.circle,
                               border: Border.all(
                                   color: ColorConstant.surface, width: 2),
-                            ),
+                                      ),
                             child: Icon(
-                              Icons.camera_alt_rounded,
-                              size: 16,
+                                        Icons.camera_alt_rounded,
+                                        size: 16,
                               color: ColorConstant.onPrimary,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (!_isEditing) ...[
+                          const SizedBox(height: 16),
+                          if (!_isEditing) ...[
                   Center(
                     child: Column(
                       children: [
-                        Text(
-                          _nameController.text.isNotEmpty
-                              ? _nameController.text
-                              : 'Your Name',
+                            Text(
+                              _nameController.text.isNotEmpty 
+                                  ? _nameController.text 
+                                  : 'Your Name',
                           style: GoogleFonts.robotoFlex(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
                             color: ColorConstant.onSurface,
-                          ),
-                        ),
-                        if (_pronounsController.text.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              _pronounsController.text,
-                              style: GoogleFonts.robotoFlex(
-                                fontSize: 14,
-                                color: ColorConstant.onSurfaceVariant,
                               ),
                             ),
-                          ),
+                            if (_pronounsController.text.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  _pronounsController.text,
+                              style: GoogleFonts.robotoFlex(
+                                    fontSize: 14,
+                                color: ColorConstant.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 32),
                 ] else
-                  const SizedBox(height: 32),
+                            const SizedBox(height: 32),
 
                 // Sections
                 _buildSectionHeader("Identity"),
@@ -252,66 +252,66 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
                   _buildTextField(
                     controller: _nameController,
                     label: "Full Name",
-                    icon: Icons.badge_outlined,
+                            icon: Icons.badge_outlined,
                     isLast: false,
-                  ),
+                          ),
                   _buildTextField(
                     controller: _pronounsController,
                     label: "Pronouns",
-                    icon: Icons.record_voice_over_outlined,
+                            icon: Icons.record_voice_over_outlined,
                     isLast: false,
-                  ),
+                          ),
                   _buildTextField(
                     controller: _birthdayController,
                     label: "Birthday",
-                    icon: Icons.cake_outlined,
+                            icon: Icons.cake_outlined,
                     isLast: true,
-                    keyboardType: TextInputType.datetime,
-                  ),
+                            keyboardType: TextInputType.datetime,
+                          ),
                 ]),
 
                 const SizedBox(height: 24),
                 _buildSectionHeader("Contact Info"),
-                const SizedBox(height: 16),
+                          const SizedBox(height: 16),
                 _buildCardContainer([
                   _buildTextField(
                     controller: _emailController,
                     label: "Email",
-                    icon: Icons.email_outlined,
+                            icon: Icons.email_outlined,
                     isLast: false,
-                    keyboardType: TextInputType.emailAddress,
-                  ),
+                            keyboardType: TextInputType.emailAddress,
+                          ),
                   _buildTextField(
                     controller: _phoneController,
                     label: "Phone",
-                    icon: Icons.phone_outlined,
+                            icon: Icons.phone_outlined,
                     isLast: false,
-                    keyboardType: TextInputType.phone,
-                  ),
+                            keyboardType: TextInputType.phone,
+                          ),
                   _buildTextField(
                     controller: _locationController,
                     label: "Location",
-                    icon: Icons.location_on_outlined,
+                            icon: Icons.location_on_outlined,
                     isLast: true,
-                  ),
+                          ),
                 ]),
 
                 const SizedBox(height: 24),
                 _buildSectionHeader("About Me"),
-                const SizedBox(height: 16),
+                          const SizedBox(height: 16),
                 _buildCardContainer([
                   _buildTextField(
                     controller: _notesController,
                     label: "Personal Notes",
-                    icon: Icons.edit_note_outlined,
+                            icon: Icons.edit_note_outlined,
                     isLast: true,
-                    maxLines: 4,
-                  ),
+                            maxLines: 4,
+                          ),
                 ]),
                 const SizedBox(height: 40),
-              ],
-            ),
-          ),
+                        ],
+                      ),
+                    ),
         );
       },
     );
@@ -320,12 +320,12 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.only(left: 4),
-      child: Text(
-        title.toUpperCase(),
+        child: Text(
+          title.toUpperCase(),
         style: GoogleFonts.robotoFlex(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1.2,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
           color: ColorConstant.primary,
         ),
       ),
@@ -370,30 +370,30 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
                   color: _isEditing
                       ? ColorConstant.primary
                       : ColorConstant.onSurfaceVariant,
-                ),
-              ),
+          ),
+        ),
               Expanded(
-                child: TextField(
-                  controller: controller,
+        child: TextField(
+          controller: controller,
                   readOnly: !_isEditing,
                   enabled: _isEditing,
-                  maxLines: maxLines,
-                  keyboardType: keyboardType,
+          maxLines: maxLines,
+          keyboardType: keyboardType,
                   style: GoogleFonts.robotoFlex(
                     fontSize: 16,
                     color: ColorConstant.onSurface,
                   ),
-                  decoration: InputDecoration(
-                    labelText: label,
+          decoration: InputDecoration(
+            labelText: label,
                     labelStyle: GoogleFonts.robotoFlex(
                       color: ColorConstant.onSurfaceVariant,
                     ),
-                    border: InputBorder.none,
+            border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                    isDense: true,
-                  ),
-                ),
-              ),
+            isDense: true,
+          ),
+        ),
+      ),
             ],
           ),
         ),
