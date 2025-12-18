@@ -109,10 +109,10 @@ ${userInfoText.isNotEmpty ? 'User Information:\n$userInfoText\n' : ''}
 
   /// Prompt for Dream Analysis
   static String buildDreamAnalysisChatPrompt(
-      UserInfo userInfo,
-      String dreamTitle,
-      String analysis,
-      ) {
+    UserInfo userInfo,
+    String dreamTitle,
+    String analysis,
+  ) {
     final basePrompt = buildBasePrompt(userInfo);
 
     return '''
@@ -138,29 +138,35 @@ ${userInfoText.isNotEmpty ? 'User Information:\n$userInfoText\n' : ''}
     ''';
   }
 
-
   static String buildDreamDiagnosisPrompt() {
     return '''
       Act as a professional psychologist analyzing dream patterns from the 
-      user's 3 most recent dreams.
+      user's 10 most recent dreams.
       
-      Based on these dreams, provide a brief diagnosis such that:
-      1. Analyze if there are potential signs of mental health concerns.
-      2. Conclude clearly whether the user shows signs of potential mental 
-      illness or if they appear healthy.
-      3. Provide user something they can do to relieve their symptoms if they
-       appear to have, and include 1-2 HYPERLINKS to helpful resources 
-       related to the help provided.
-      4. Keep the tone supportive and professional.
-      5. Do not provide any medical prescription.
+      Output your response in valid JSON format ONLY. Do not use Markdown 
+      formatting.
+      
+      The JSON object must have this exact structures:
+      {
+        "summary" : "A 1 sentence, warm, and inviting summary of the main 
+        insight. Max 25 words",
+        "content" : "The detailed analysis in Markdown format." 
+      }
+      
+      For the "content" field:
+      1. Analyze potential signs of mental health concerns.
+      2. Conclude clearly whether the user shows signs of potential mental illness.
+      3. Provide actionable relief advice and 1-2 HYPERLINKS to helpful resources.
+      4. Tone: Supportive and professional, but DIRECT. 
+      5. CRITICAL: Do NOT start with greetings like "Hello", "Hi", or "Based on your dreams". Start immediately with the insight.
+      6. Do not provide medical prescriptions.
       ''';
   }
 
   static String buildDreamDiagnosisChatPrompt(
-      UserInfo userInfo,
-      String diagnosis,
-      ) {
-
+    UserInfo userInfo,
+    String diagnosis,
+  ) {
     final basePrompt = buildBasePrompt(userInfo);
 
     return '''
@@ -188,16 +194,21 @@ ${userInfoText.isNotEmpty ? 'User Information:\n$userInfoText\n' : ''}
     return '''
     Act as a professional psychologist comparing two recent dream pattern analyses.
 
-      Your task is to review the most recent set of dreams (New Diagnosis) and compare the resulting mental state assessment against the previous assessment (Previous Diagnosis).
+    Output your response in valid JSON format ONLY. Do not use Markdown formatting.
+    
+    The JSON object must have this exact structure:
+    {
+      "summary": "A 1 sentence summary focusing on their progress (e.g. 'Your patterns show a calming trend...'). Max 25 words.",
+      "content": "The detailed comparison in Markdown format."
+    }
 
-      Based on this comparison, provide a conclusion focusing on the user's progress:
-      1. Analyze the two diagnoses for shifts in core themes, emotional tone, and potential psychological distress.
-      2. **Provide a clear conclusion (e.g., "Improved," "Worsened," or "Stable").**
-      3. Explain *why* the user's mental state is considered better, worse, or stable by citing specific changes in the dream patterns or diagnoses.
-      4. Offer supportive and professional advice, providing 1-2 HYPERLINKS to helpful external resources.
-      5. Keep the tone supportive and professional.
-      6. Do not provide any medical prescription.
-      7. Format any provided links using Markdown: [Link Text](URL).
+    For the "content" field:
+      1. Compare the new diagnosis against the previous one.
+      2. Provide a clear conclusion (Improved/Worsened/Stable).
+      3. Explain *why* citing specific changes.
+      4. Offer advice with 1-2 HYPERLINKS.
+      5. CRITICAL: Do NOT use greetings. Be direct.
+      6. No medical prescriptions.
       ''';
   }
 }

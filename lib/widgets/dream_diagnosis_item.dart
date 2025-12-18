@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -16,8 +18,19 @@ class DreamDiagnosisItem extends StatelessWidget {
     this.onRefresh,
   });
 
+  String _getSummary(String rawContent) {
+    try {
+      final Map<String, dynamic> json = jsonDecode(rawContent);
+      return json['summary'] ?? "No summary available";
+    } catch (e) {
+      return rawContent;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final summaryText = _getSummary(dreamDiagnosis.diagnosisContent);
+
     return InkWell(
       borderRadius: BorderRadius.circular(24),
       onTap: () async {
@@ -98,8 +111,9 @@ class DreamDiagnosisItem extends StatelessWidget {
               ],
             ),
             SizedBox(height: 24),
+            // Summary Text
             Text(
-              dreamDiagnosis.diagnosisContent,
+              summaryText,
               style: GoogleFonts.robotoFlex(
                 color: ColorConstant.onSurface,
                 fontSize: 18,
@@ -111,6 +125,7 @@ class DreamDiagnosisItem extends StatelessWidget {
               textAlign: TextAlign.left,
             ),
             SizedBox(height: 24),
+            // Read Full Analysis
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [

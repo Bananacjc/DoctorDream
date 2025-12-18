@@ -1,5 +1,5 @@
 import 'dart:developer';
-
+import 'dart:convert';
 import 'package:doctor_dream/screens/chat_screen.dart';
 import 'package:doctor_dream/view_models/dream_diagnosis_detail_view_model.dart';
 import 'package:doctor_dream/widgets/custom_button.dart';
@@ -28,7 +28,25 @@ class _DreamDiagnosisDetailScreenState
   final _viewModel = DreamDiagnosisDetailViewModel();
   bool _isChatStarting = false;
 
-  Future<void> _startChatDiscussion(String diagnosis) async {
+  String _getDetailContent(String rawContent) {
+    try {
+      final Map<String, dynamic> json = jsonDecode(rawContent);
+      return json['content'] ?? rawContent;
+    } catch (e) {
+      return rawContent;
+    }
+  }
+
+  String _getSummary(String rawContent) {
+    try {
+      final Map<String, dynamic> json = jsonDecode(rawContent);
+      return json['summary'] ?? "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  Future<void> _startChatDiscussion(String rawDiagnosis) async {
     setState(() {
       _isChatStarting = true;
     });
@@ -36,10 +54,12 @@ class _DreamDiagnosisDetailScreenState
     final dummyUserInfo = UserInfo.defaultValues();
     String initialMessage;
 
+    final detailContent = _getDetailContent(rawDiagnosis);
+
     try {
       initialMessage = await _viewModel.startDiagnosisChat(
         userInfo: dummyUserInfo,
-        diagnosis: diagnosis,
+        diagnosis: detailContent,
       );
     } catch (e) {
       initialMessage =
@@ -110,6 +130,7 @@ class _DreamDiagnosisDetailScreenState
   @override
   Widget build(BuildContext context) {
     DreamDiagnosis thisDiagnosis = widget.dreamDiagnosis;
+    final displayContent = _getDetailContent(thisDiagnosis.diagnosisContent);
 
     return Scaffold(
       backgroundColor: ColorConstant.surface,
@@ -186,7 +207,7 @@ class _DreamDiagnosisDetailScreenState
                         Divider(color: ColorConstant.outlineVariant),
                         SizedBox(height: 24),
 
-                        _showResultInMarkdown(thisDiagnosis.diagnosisContent),
+                        _showResultInMarkdown(displayContent),
 
                         SizedBox(height: 100),
                       ],

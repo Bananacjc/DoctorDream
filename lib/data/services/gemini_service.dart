@@ -51,6 +51,17 @@ class GeminiService {
         'Please try again later today or upgrade your key.';
   }
 
+  String _cleanJsonResult(String text) {
+    String cleaned = text.trim();
+
+    if (cleaned.startsWith('```json')) {
+      cleaned = cleaned.replaceAll('```json', '').replaceAll('```', '');
+    } else if (cleaned.startsWith('```')) {
+      cleaned = cleaned.replaceAll('```', '');
+    }
+    return cleaned.trim();
+  }
+
   // Dream analysis prompt
   Future<String> analyzeDream(
     String title,
@@ -94,7 +105,17 @@ class GeminiService {
     try {
       final info = userInfo ?? UserInfo.defaultValues();
 
-      final isComparative = previousDiagnosis?.trim().isNotEmpty == true;
+      String? cleanPrevious;
+      if (previousDiagnosis != null && previousDiagnosis.isNotEmpty) {
+        try {
+          final jsonMap = jsonDecode(previousDiagnosis);
+          cleanPrevious = jsonMap['content'];
+        } catch (_) {
+          cleanPrevious = previousDiagnosis;
+        }
+      }
+
+      final isComparative = cleanPrevious != null;
 
       final systemPrompt = isComparative
           ? GeminiPrompts.buildComparativeDiagnosisPrompt()
@@ -105,9 +126,9 @@ class GeminiService {
       final contentBuffer = StringBuffer();
 
       if (isComparative) {
-        contentBuffer.writeln('--- Previous Diagnosis ---');
+        contentBuffer.writeln('--- Previous Diagnosis Analysis ---');
         contentBuffer.writeln(previousDiagnosis!);
-        contentBuffer.writeln('--- New Diagnosis ---');
+        contentBuffer.writeln('--- New Dreams to Analyze ---');
       }
 
       for (int i = 0; i < dreams.length; i++) {
@@ -116,7 +137,7 @@ class GeminiService {
         contentBuffer.writeln('Content: ${dreams[i].dreamContent}');
       }
 
-      log("DIAGNOSIS CONTENT: ${contentBuffer.toString()}");
+      log("DIAGNOSIS PROMPT CONTENT: ${contentBuffer.toString()}");
 
       final response = await model.generateContent([
         Content.text(contentBuffer.toString()),
@@ -124,10 +145,12 @@ class GeminiService {
 
       final reply = response.text?.trim();
 
-      return reply?.isNotEmpty == true
-          ? reply!
-          : "Could not diagnose the "
-                "dreams at this time. Please try again later.";
+      if (reply?.isNotEmpty == true) {
+        return _cleanJsonResult(reply!);
+      } else {
+        return "Could not diagnose the dreams at this time.";
+      }
+
     } catch (e) {
       print("GEMINI API ERROR (diagnoseDream): $e");
       if (_isQuotaOrRateLimitError(e)) {
