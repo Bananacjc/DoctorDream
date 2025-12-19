@@ -192,28 +192,15 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
                             onTap: () async {
                               final viewModel = SafetyPlanViewModel();
                               await viewModel.loadPlans();
-                              
+
                               if (!context.mounted) {
                                 viewModel.dispose();
                                 return;
                               }
 
-                              if (viewModel.plans.isEmpty) {
-                                viewModel.dispose();
-                                // Show message that no plans exist
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      "No safety plans yet. Create one in Settings.",
-                                      style: GoogleFonts.robotoFlex(),
-                                    ),
-                                    backgroundColor: ColorConstant.surfaceContainer,
-                                  ),
-                                );
-                                return;
-                              }
-
-                              // Show overlay with plan selection (on top of three-button overlay)
+                              // Always show overlay (even when there are no plans).
+                              // The overlay itself will explain that no plans exist and
+                              // guide the user to create one.
                               await showDialog(
                                 context: context,
                                 barrierDismissible: true,
@@ -270,22 +257,9 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
                                 return;
                               }
 
-                              if (viewModel.contacts.isEmpty) {
-                                viewModel.dispose();
-                                // Show message that no contacts exist
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      "No contacts yet. Add some in Settings.",
-                                      style: GoogleFonts.robotoFlex(),
-                                    ),
-                                    backgroundColor: ColorConstant.surfaceContainer,
-                                  ),
-                                );
-                                return;
-                              }
-
-                              // Show overlay with contact selection (on top of three-button overlay)
+                              // Always show overlay (even when there are no contacts).
+                              // The overlay itself will explain that no contacts exist and
+                              // encourage the user to add some.
                               await showDialog(
                                 context: context,
                                 barrierDismissible: true,
