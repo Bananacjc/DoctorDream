@@ -215,8 +215,9 @@ class _RecommendScreenState extends State<RecommendScreen> {
 
   Future<void> _handlePullToRefresh() async {
     if (_isPullRefreshing) return;
-    _isPullRefreshing = true;
+    
     setState(() {
+      _isPullRefreshing = true;
       _isLoading = true;
       _error = null;
       _musicTracks = [];
@@ -231,10 +232,23 @@ class _RecommendScreenState extends State<RecommendScreen> {
       _bestVideo = null;
       _bestArticle = null;
     });
-    await _loadLatestDreamAnalysis();
-    _fetchRecommendations();
-    await Future.delayed(const Duration(milliseconds: 400));
-    _isPullRefreshing = false;
+    
+    try {
+      await _loadLatestDreamAnalysis();
+      await _fetchRecommendations();
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPullRefreshing = false;
+        });
+      }
+    }
   }
 
   void _onCategorySelected(_RecommendationCategory category) {
@@ -849,7 +863,9 @@ class _RecommendScreenState extends State<RecommendScreen> {
               onRefresh: _handlePullToRefresh,
               child: CustomScrollView(
                 keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                physics: const AlwaysScrollableScrollPhysics(),
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
                 slivers: [
                   SliverToBoxAdapter(
                     child: Padding(
