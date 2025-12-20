@@ -220,6 +220,7 @@ class _DreamReviewScreenState extends State<DreamReviewScreen> {
       builder: (context, child) {
         return Scaffold(
           appBar: AppBar(
+            backgroundColor: Colors.transparent,
             centerTitle: true,
             title: Column(
               children: [
@@ -253,131 +254,144 @@ class _DreamReviewScreenState extends State<DreamReviewScreen> {
               ],
             ),
           ),
-          body: Padding(
-            padding: EdgeInsets.all(16),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                // Search bar and filter
-                Padding(
-                  padding: EdgeInsets.only(bottom: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        flex: 7,
-                        child: CustomSearchBar(
-                          onSearch: (query) {
-                            _viewModel.searchDreams(query);
-                          },
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  ColorConstant.surfaceContainer,
+                  ColorConstant.surfaceContainerHigh,
+                  ColorConstant.surfaceContainerHighest
+                ]
+              )
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  // Search bar and filter
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          flex: 12,
+                          child: CustomSearchBar(
+                            onSearch: (query) {
+                              _viewModel.searchDreams(query);
+                            },
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(flex: 2, child: _buildCustomFilter()),
+                      ],
+                    ),
+                  ),
+                  if (_viewModel.isLoading)
+                    Expanded(
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                              color: ColorConstant.primary,
+                            ),
+                            SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.hourglass_empty_rounded,
+                                  color: ColorConstant.onSurface,
+                                  size: 18,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  "Brewing up your memories...",
+                                  style: GoogleFonts.robotoFlex(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: ColorConstant.onSurface,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                      SizedBox(width: 12),
-                      Expanded(flex: 2, child: _buildCustomFilter()),
-                    ],
-                  ),
-                ),
-                if (_viewModel.isLoading)
-                  Expanded(
-                    child: Center(
+                    )
+                  else if (_viewModel.hasNoDreams)
+                    Expanded(child: Center(child: _showNoDreamEntriesDialog()))
+                  // Dream entries
+                  else if (_viewModel.dreams.isEmpty) ...[
+                    Expanded(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          CircularProgressIndicator(
-                            color: ColorConstant.primary,
+                          Icon(
+                            Icons.sentiment_dissatisfied_outlined,
+                            size: 64,
+                            color: ColorConstant.onPrimary,
                           ),
-                          SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.hourglass_empty_rounded,
-                                color: ColorConstant.onSurface,
-                                size: 18,
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                "Brewing up your memories...",
-                                style: GoogleFonts.robotoFlex(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: ColorConstant.onSurface,
-                                ),
-                              ),
-                            ],
+                          SizedBox(height: 8),
+                          Text(
+                            "Hmm, those dreams are hiding!",
+                            style: GoogleFonts.robotoFlex(
+                              color: ColorConstant.onPrimary,
+                              fontSize: 18,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            "Try a different filter or tap 'See Everything' to "
+                                "reset.",
+                            style: GoogleFonts.robotoFlex(
+                              color: ColorConstant.onPrimary.withAlpha(180),
+                              fontSize: 14,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                  )
-                else if (_viewModel.hasNoDreams)
-                  Expanded(child: Center(child: _showNoDreamEntriesDialog()))
-                // Dream entries
-                else if (_viewModel.dreams.isEmpty) ...[
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.sentiment_dissatisfied_outlined,
-                          size: 64,
-                          color: ColorConstant.onPrimary,
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          "Hmm, those dreams are hiding!",
-                          style: GoogleFonts.robotoFlex(
-                            color: ColorConstant.onPrimary,
-                            fontSize: 18,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          "Try a different filter or tap 'See Everything' to "
-                              "reset.",
-                          style: GoogleFonts.robotoFlex(
-                            color: ColorConstant.onPrimary.withAlpha(180),
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ] else
-                  Expanded(
-                    child: RawScrollbar(
-                      controller: _dreamEntriesController,
-                      thumbColor: ColorConstant.onSurface,
-                      radius: Radius.circular(8),
-                      child: ListView.builder(
+                  ] else
+                    Expanded(
+                      child: RawScrollbar(
                         controller: _dreamEntriesController,
-                        padding: EdgeInsets.zero,
-                        itemCount: _viewModel.dreams.length,
-                        itemBuilder: (context, i) {
-                          return DreamEntryItem(
-                            dreamEntry: _viewModel.dreams[i],
-                            onRefresh: () => _viewModel.loadDreams(),
-                          );
-                        },
+                        thumbColor: ColorConstant.onSurface,
+                        radius: Radius.circular(8),
+                        child: ListView.builder(
+                          controller: _dreamEntriesController,
+                          padding: EdgeInsets.zero,
+                          itemCount: _viewModel.dreams.length,
+                          itemBuilder: (context, i) {
+                            return DreamEntryItem(
+                              dreamEntry: _viewModel.dreams[i],
+                              onRefresh: () => _viewModel.loadDreams(),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  // Add dream button
+                  SizedBox(
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 16),
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: CustomPillButton(
+                          onPressed: _navigateToDreamEditScreen,
+                          labelText: "Record Your Dream Now",
+                          icon: Icons.cloud_queue_rounded,
+                        ),
                       ),
                     ),
                   ),
-                // Add dream button
-                SizedBox(
-                  child: Padding(
-                    padding: EdgeInsets.only(top: 16),
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: CustomPillButton(
-                        onPressed: _navigateToDreamEditScreen,
-                        labelText: "Record Your Dream Now",
-                        icon: Icons.cloud_queue_rounded,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );

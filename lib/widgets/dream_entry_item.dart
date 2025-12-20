@@ -34,6 +34,7 @@ class DreamEntryItem extends StatelessWidget {
         decoration: BoxDecoration(
           color: ColorConstant.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: ColorConstant.primary, width: 2),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -54,7 +55,9 @@ class DreamEntryItem extends StatelessWidget {
 
             // Date
             Text(
-              DateFormat("MMM dd, yyyy - hh:mm a").format(dreamEntry.updatedAt),
+              DateFormat(
+                "MMM dd, yyyy \u00B7 hh:mm a",
+              ).format(dreamEntry.updatedAt),
               style: GoogleFonts.robotoFlex(
                 color: ColorConstant.onSurfaceVariant.withAlpha(153),
                 fontSize: 14,
@@ -78,7 +81,6 @@ class DreamEntryItem extends StatelessWidget {
                 maxLines: 2,
               ),
             ),
-
           ],
         ),
       ),

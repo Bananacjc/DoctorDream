@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'constants/color_constant.dart';
 import 'widgets/custom_bottom_navigation_bar.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -62,6 +63,11 @@ class MyApp extends StatelessWidget {
             fontWeight: FontWeight.normal,
             color: Theme.of(context).colorScheme.onPrimary
           ),
+        ),
+        textSelectionTheme: TextSelectionThemeData(
+          selectionColor: ColorConstant.primary.withAlpha(100),
+          selectionHandleColor: ColorConstant.primary,
+          cursorColor: ColorConstant.primary,
         ),
         useMaterial3: true,
       ),

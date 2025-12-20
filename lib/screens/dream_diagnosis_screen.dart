@@ -424,7 +424,7 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: const Color(0xFF4E8BFF).withOpacity(0.3),
+              color: const Color(0xFF4E8BFF).withAlpha(77),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Center(
@@ -494,142 +494,155 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
               ],
             ),
           ),
-          body: Stack(
-            children: [
-              Padding(
-                padding: EdgeInsets.all(16),
-                child: LayoutBuilder(
-                  builder: (context, constraint) {
-                    if (_viewModel.isLoading) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircularProgressIndicator(
-                              color: ColorConstant.primary,
-                            ),
-                            SizedBox(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.hourglass_empty_rounded,
-                                  color: ColorConstant.onSurface,
-                                  size: 18,
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  "Connecting the dots...",
-                                  style: GoogleFonts.robotoFlex(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: ColorConstant.onSurface,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-
-                    if (_viewModel.hasNoDiagnosis &&
-                        _viewModel.hasEnoughDreams) {
-                      return Expanded(
-                        child: Center(child: _showNoDiagnosisDialog()),
-                      );
-                    }
-
-                    if (!_viewModel.hasEnoughDreams) {
-                      return Expanded(
-                        child: Center(child: _showNotEnoughDreamDialog()),
-                      );
-                    }
-
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Spacer(),
-                        Icon(
-                          Icons.psychology_alt_rounded,
-                          size: 64,
-                          color: ColorConstant.tertiary.withAlpha(200),
-                        ),
-                        SizedBox(height: 24),
-
-                        if (_viewModel.diagnosis.isNotEmpty)
-                          Hero(
-                            tag: "diagnosis_card",
-                            child: DreamDiagnosisItem(
-                              dreamDiagnosis: _viewModel.diagnosis.first,
-                              onRefresh: () => _viewModel.loadDiagnosis(),
-                            ),
-                          ),
-                        SizedBox(height: 32),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: CustomPillButton(
-                            labelText: _viewModel.isDiagnosing
-                                ? "Analyzing Patterns..."
-                                : "Reveal New Insights",
-                            icon: Icons.refresh_rounded,
-                            onPressed: _viewModel.isDiagnosing
-                                ? null
-                                : _diagnoseDreams,
-                          ),
-                        ),
-                        Spacer(),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Text(
-                            "Analysis updates based on your recent 10 dreams.",
-                            style: GoogleFonts.robotoFlex(
-                              color: ColorConstant.onSurfaceVariant.withAlpha(
-                                100,
+          body: Container(
+            decoration: BoxDecoration(
+                gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      ColorConstant.surfaceContainer,
+                      ColorConstant.surfaceContainerHigh,
+                      ColorConstant.surfaceContainerHighest
+                    ]
+                )
+            ),
+            child: Stack(
+              children: [
+                Padding(
+                  padding: EdgeInsets.all(16),
+                  child: LayoutBuilder(
+                    builder: (context, constraint) {
+                      if (_viewModel.isLoading) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CircularProgressIndicator(
+                                color: ColorConstant.primary,
                               ),
-                              fontSize: 12,
+                              SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.hourglass_empty_rounded,
+                                    color: ColorConstant.onSurface,
+                                    size: 18,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    "Connecting the dots...",
+                                    style: GoogleFonts.robotoFlex(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: ColorConstant.onSurface,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      if (_viewModel.hasNoDiagnosis &&
+                          _viewModel.hasEnoughDreams) {
+                        return Expanded(
+                          child: Center(child: _showNoDiagnosisDialog()),
+                        );
+                      }
+
+                      if (!_viewModel.hasEnoughDreams) {
+                        return Expanded(
+                          child: Center(child: _showNotEnoughDreamDialog()),
+                        );
+                      }
+
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Spacer(),
+                          Icon(
+                            Icons.psychology_alt_rounded,
+                            size: 64,
+                            color: ColorConstant.tertiary.withAlpha(200),
+                          ),
+                          SizedBox(height: 24),
+
+                          if (_viewModel.diagnosis.isNotEmpty)
+                            Hero(
+                              tag: "diagnosis_card",
+                              child: DreamDiagnosisItem(
+                                dreamDiagnosis: _viewModel.diagnosis.first,
+                                onRefresh: () => _viewModel.loadDiagnosis(),
+                              ),
+                            ),
+                          SizedBox(height: 32),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 56,
+                            child: CustomPillButton(
+                              labelText: _viewModel.isDiagnosing
+                                  ? "Analyzing Patterns..."
+                                  : "Reveal New Insights",
+                              icon: Icons.refresh_rounded,
+                              onPressed: _viewModel.isDiagnosing
+                                  ? null
+                                  : _diagnoseDreams,
                             ),
                           ),
-                        ),
-                      ],
-                    );
-                  },
+                          Spacer(),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              "Analysis updates based on your recent 10 dreams.",
+                              style: GoogleFonts.robotoFlex(
+                                color: ColorConstant.onSurfaceVariant.withAlpha(
+                                  100,
+                                ),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
-              ),
-              if (_viewModel.isDiagnosing)
-                Positioned.fill(
-                  child: CustomProgressIndicator(
-                    icon: Icon(
-                      Icons.monitor_heart_rounded,
-                      size: 18,
-                      color: ColorConstant.onSurface,
-                    ),
-                    indicatorText: Text(
-                      "Revealing what is in the subconscious...",
-                      style: GoogleFonts.robotoFlex(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                if (_viewModel.isDiagnosing)
+                  Positioned.fill(
+                    child: CustomProgressIndicator(
+                      icon: Icon(
+                        Icons.monitor_heart_rounded,
+                        size: 18,
                         color: ColorConstant.onSurface,
+                      ),
+                      indicatorText: Text(
+                        "Revealing what is in the subconscious...",
+                        style: GoogleFonts.robotoFlex(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: ColorConstant.onSurface,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              if (!_viewModel.isDiagnosing)
-                Positioned(
-                  top: 16,
-                  right: 16,
-                  child: FloatingActionButton(
-                    heroTag: "help_button",
-                    onPressed: () => _showHelpDialog(context),
-                    backgroundColor: ColorConstant.secondary,
-                    child: Icon(
-                      Icons.help_outline_rounded,
-                      color: ColorConstant.onSecondary,
+                if (!_viewModel.isDiagnosing)
+                  Positioned(
+                    top: 16,
+                    right: 16,
+                    child: FloatingActionButton(
+                      heroTag: "help_button",
+                      onPressed: () => _showHelpDialog(context),
+                      backgroundColor: ColorConstant.secondary,
+                      child: Icon(
+                        Icons.help_outline_rounded,
+                        color: ColorConstant.onSecondary,
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         );
       },

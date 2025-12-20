@@ -6,6 +6,7 @@ import 'package:doctor_dream/widgets/custom_button.dart';
 import 'package:doctor_dream/widgets/custom_progress_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../data/local/local_database.dart';
@@ -87,6 +88,21 @@ class _DreamDiagnosisDetailScreenState
     return MarkdownBody(
       data: result,
       selectable: true,
+      onTapLink: (text, href, title) async {
+        if (href != null) {
+          final Uri url = Uri.parse(href);
+          try {
+            if (await canLaunchUrl(url)) {
+              await launchUrl(url, mode: LaunchMode.externalApplication);
+            } else {
+              // TODO: Snack bar
+              log("Cannot launch link");
+          }
+            } catch (e) {
+            log("Error launching url: $e");
+          }
+        }
+      },
       styleSheet: MarkdownStyleSheet(
         p: GoogleFonts.robotoFlex(
           fontSize: 16,
@@ -205,9 +221,9 @@ class _DreamDiagnosisDetailScreenState
                             ),
                           ],
                         ),
-                        SizedBox(height: 24),
+                        SizedBox(height: 8),
                         Divider(color: ColorConstant.outlineVariant),
-                        SizedBox(height: 24),
+                        SizedBox(height: 8),
 
                         _showResultInMarkdown(displayContent),
 

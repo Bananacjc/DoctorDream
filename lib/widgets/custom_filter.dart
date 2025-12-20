@@ -20,7 +20,7 @@ class CustomFilter<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: ColorConstant.inverseSurface,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(50),
       child: Theme(
         data: Theme.of(context).copyWith(
           textTheme: Theme.of(context).textTheme.apply(

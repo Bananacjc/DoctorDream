@@ -108,6 +108,12 @@ ${userInfoText.isNotEmpty ? 'User Information:\n$userInfoText\n' : ''}
        2. **Interpretation** : Detailed dream's meaning analysis.
        
        Keep the tone empathetic, insightful, and non-judgemental. 
+       
+       For the response:
+       1. Keep the response short and direct, use 1-2 paragraph with each 
+       about 5-6 sentences for each sections.
+       2. CRITICAL: Do NOT start with greetings like "Hello", "Hi", or "Based
+        on your dreams". Start immediately with the analysis.
       ''';
   }
 
@@ -139,6 +145,12 @@ ${userInfoText.isNotEmpty ? 'User Information:\n$userInfoText\n' : ''}
     The user is now waiting for your response to start this discussion. 
     Briefly summarize the key takeaway form the analysis and ask how they 
     feel about it.
+    
+    For the response:
+       1. Keep the response short and direct, keep the response within 3-4 
+       sentences.
+       2. CRITICAL: Do NOT start with greetings like "Hello", "Hi", or "Based
+        on your dreams". Start immediately with the chatting.
     ''';
   }
 
@@ -158,12 +170,17 @@ ${userInfoText.isNotEmpty ? 'User Information:\n$userInfoText\n' : ''}
       }
       
       For the "content" field:
-      1. Analyze potential signs of mental health concerns.
-      2. Conclude clearly whether the user shows signs of potential mental illness.
-      3. Provide actionable relief advice and 1-2 HYPERLINKS to helpful resources.
-      4. Tone: Supportive and professional, but DIRECT. 
-      5. CRITICAL: Do NOT start with greetings like "Hello", "Hi", or "Based on your dreams". Start immediately with the insight.
-      6. Do not provide medical prescriptions.
+      1. Keep the response short and direct, use 1-2 paragraph with each 
+       about 5-6 sentences for each sections.
+      2. Analyze potential signs of mental health concerns.
+      3. Conclude clearly whether the user shows signs of potential mental 
+      illness.
+      4. Provide actionable relief advice and 1-2 HYPERLINKS to helpful 
+      resources.
+      5. Tone: Supportive and professional, but DIRECT. 
+      6. CRITICAL: Do NOT start with greetings like "Hello", "Hi", or "Based 
+      on your dreams". Start immediately with the insight.
+      7. Do not provide medical prescriptions.
       ''';
   }
 

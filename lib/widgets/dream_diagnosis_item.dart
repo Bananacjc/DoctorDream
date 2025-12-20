@@ -53,8 +53,8 @@ class DreamDiagnosisItem extends StatelessWidget {
           color: ColorConstant.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: ColorConstant.tertiary.withAlpha(50),
-            width: 1,
+            color: ColorConstant.primary,
+            width: 2,
           ),
           boxShadow: [
             BoxShadow(
