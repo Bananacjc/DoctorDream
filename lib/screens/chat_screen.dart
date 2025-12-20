@@ -12,11 +12,13 @@ import '../data/models/chat_message.dart';
 class ChatScreen extends StatefulWidget {
   final String? initialMessage;
   final bool isAiInitiated;
+  final ValueNotifier<int>? activeTabNotifier;
 
   const ChatScreen({
     super.key,
     this.initialMessage,
     this.isAiInitiated = false,
+    this.activeTabNotifier,
   });
 
   @override
@@ -32,6 +34,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<ChatMessage> _messages = [];
   bool _isSending = false;
   bool _isLoadingHistory = false;
+  bool _isActive = true; // Track if chat tab is active
 
   // Session management
   String? _currentSessionId;
@@ -48,7 +51,33 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    // Listen to active tab changes
+    widget.activeTabNotifier?.addListener(_onActiveTabChanged);
+    _isActive = widget.activeTabNotifier?.value == 3;
     _initChat();
+  }
+
+  void _onActiveTabChanged() {
+    final wasActive = _isActive;
+    _isActive = widget.activeTabNotifier?.value == 3;
+    
+    if (wasActive && !_isActive) {
+      // Tab became inactive - unfocus and close keyboard
+      _focusNode.unfocus();
+    }
+    
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.activeTabNotifier?.removeListener(_onActiveTabChanged);
+    _textController.dispose();
+    _scrollController.dispose();
+    _focusNode.dispose();
+    super.dispose();
   }
 
   Future<void> _initChat() async {
@@ -100,13 +129,6 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  @override
-  void dispose() {
-    _textController.dispose();
-    _scrollController.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
 
   Future<void> _loadSessions() async {
     final sessions = await LocalDatabase.instance.fetchChatSessions();
@@ -176,7 +198,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _sendMessage() async {
     final text = _textController.text.trim();
-    if (text.isEmpty || _isSending) return;
+    if (text.isEmpty || _isSending || !_isActive) return;
 
     _focusNode.unfocus();
     _textController.clear();
@@ -656,18 +678,24 @@ class _ChatScreenState extends State<ChatScreen> {
               child: TextField(
                 controller: _textController,
                 focusNode: _focusNode,
+                enabled: _isActive,
                 cursorColor: accent,
                 maxLines: 5,
                 minLines: 1,
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => _sendMessage(),
-                style: const TextStyle(color: Colors.white, fontSize: 16),
-                decoration: const InputDecoration(
+                style: TextStyle(
+                  color: _isActive ? Colors.white : Colors.white38,
+                  fontSize: 16,
+                ),
+                decoration: InputDecoration(
                   hintText: 'Share with DoctorDream...',
-                  hintStyle: TextStyle(color: Colors.white38),
+                  hintStyle: TextStyle(
+                    color: _isActive ? Colors.white38 : Colors.white24,
+                  ),
                   hintMaxLines: 1,
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
+                  contentPadding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 12,
                   ),
@@ -679,16 +707,22 @@ class _ChatScreenState extends State<ChatScreen> {
           const SizedBox(width: 12),
           Container(
             decoration: BoxDecoration(
-              color: _textController.text.isNotEmpty ? accent : Colors.white10,
+              color: (_textController.text.isNotEmpty && _isActive)
+                  ? accent
+                  : Colors.white10,
               shape: BoxShape.circle,
             ),
             child: IconButton(
               icon: Icon(
                 Icons.send_rounded,
-                color: _textController.text.isNotEmpty ? navy : Colors.white38,
+                color: (_textController.text.isNotEmpty && _isActive)
+                    ? navy
+                    : Colors.white38,
                 size: 20,
               ),
-              onPressed: _textController.text.isNotEmpty ? _sendMessage : null,
+              onPressed: (_textController.text.isNotEmpty && _isActive)
+                  ? _sendMessage
+                  : null,
             ),
           ),
         ],
