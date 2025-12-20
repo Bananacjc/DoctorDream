@@ -1,5 +1,6 @@
 import 'package:doctor_dream/constants/color_constant.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../screens/dream_diagnosis_screen.dart';
 import '../screens/dream_review_screen.dart';
 import '../screens/recommend_screen.dart';
@@ -16,30 +17,14 @@ class CustomBottomNavigationBar extends StatefulWidget {
 
 class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
   int _currentIndex = 0; // Default to home screen
-  final ValueNotifier<int> _activeTabNotifier = ValueNotifier<int>(0);
 
-  late final List<Widget> _pages;
-
-  @override
-  void initState() {
-    super.initState();
-    // Initialize active tab notifier value
-    _activeTabNotifier.value = _currentIndex;
-    // Initialize pages with ChatScreen receiving the active tab notifier
-    _pages = [
-      const DreamReviewScreen(),
-      const DreamDiagnosisScreen(),
-      const RecommendScreen(),
-      ChatScreen(activeTabNotifier: _activeTabNotifier),
-      const ProfileScreen(),
-    ];
-  }
-
-  @override
-  void dispose() {
-    _activeTabNotifier.dispose();
-    super.dispose();
-  }
+  final List<Widget> _pages = const <Widget>[
+    DreamReviewScreen(),
+    DreamDiagnosisScreen(),
+    RecommendScreen(),
+    ChatScreen(),
+    ProfileScreen(),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -56,10 +41,7 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
             selectedItemColor: activeColor,
             unselectedItemColor: inactiveColor,
             currentIndex: _currentIndex,
-            onTap: (index) {
-              setState(() => _currentIndex = index);
-              _activeTabNotifier.value = index;
-            },
+            onTap: (index) => setState(() => _currentIndex = index),
             type: BottomNavigationBarType.fixed,
             selectedFontSize: 11,
             unselectedFontSize: 11,
