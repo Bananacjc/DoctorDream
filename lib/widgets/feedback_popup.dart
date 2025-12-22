@@ -114,7 +114,7 @@ class _FeedbackPopupState extends State<FeedbackPopup> {
                 controller: _commentController,
                 decoration: InputDecoration(
                   hintText: 'Share your thoughts (optional)...',
-                  hintStyle: TextStyle(color: ColorConstant.onSurfaceVariant.withOpacity(0.5)),
+                  hintStyle: GoogleFonts.robotoFlex(color: ColorConstant.onSurfaceVariant.withOpacity(0.5)),
                   filled: true,
                   fillColor: ColorConstant.surfaceContainerHighest,
                   border: OutlineInputBorder(
@@ -130,7 +130,7 @@ class _FeedbackPopupState extends State<FeedbackPopup> {
                   ),
                   contentPadding: const EdgeInsets.all(16),
                 ),
-                style: TextStyle(color: ColorConstant.onSurface),
+                style: GoogleFonts.robotoFlex(color: ColorConstant.onSurface),
                 maxLines: 3,
               ),
               const SizedBox(height: 24),

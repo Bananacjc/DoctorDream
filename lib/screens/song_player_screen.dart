@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../data/models/music_track.dart';
 import '../data/services/youtube_audio_service.dart';
@@ -251,9 +252,9 @@ class _SongPlayerScreenState extends State<SongPlayerScreen> {
           elevation: 0,
           centerTitle: true,
           iconTheme: const IconThemeData(color: Colors.white),
-          title: const Text(
+          title: Text(
             'Now Playing',
-            style: TextStyle(
+            style: GoogleFonts.robotoFlex(
               color: Colors.white,
               fontWeight: FontWeight.w600,
             ),
@@ -280,7 +281,7 @@ class _SongPlayerScreenState extends State<SongPlayerScreen> {
                       children: [
                         Text(
                           _error!,
-                          style: const TextStyle(color: Colors.redAccent),
+                          style: GoogleFonts.robotoFlex(color: Colors.redAccent),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 12),
@@ -310,9 +311,9 @@ class _SongPlayerScreenState extends State<SongPlayerScreen> {
             elevation: 0,
             centerTitle: true,
             iconTheme: const IconThemeData(color: Colors.white),
-          title: const Text(
+          title: Text(
             'Now Playing',
-            style: TextStyle(
+            style: GoogleFonts.robotoFlex(
               color: Colors.white,
               fontWeight: FontWeight.w600,
             ),
@@ -393,7 +394,7 @@ class _SongPlayerScreenState extends State<SongPlayerScreen> {
                         // Song Title
                         Text(
                           widget.track.title,
-                          style: const TextStyle(
+                          style: GoogleFonts.robotoFlex(
                             color: Colors.white,
                             fontSize: 24,
                             fontWeight: FontWeight.w600,
@@ -407,7 +408,7 @@ class _SongPlayerScreenState extends State<SongPlayerScreen> {
                         // Artist Name
                         Text(
                           widget.track.artist,
-                          style: const TextStyle(
+                          style: GoogleFonts.robotoFlex(
                             color: Color(0xFFB4BEDA),
                             fontSize: 16,
                           ),
@@ -430,7 +431,7 @@ class _SongPlayerScreenState extends State<SongPlayerScreen> {
                                 children: [
                                   Text(
                                     _formatDuration(_currentPosition),
-                                    style: const TextStyle(
+                                    style: GoogleFonts.robotoFlex(
                                       color: Colors.white,
                                       fontSize: 12,
                                     ),
@@ -465,7 +466,7 @@ class _SongPlayerScreenState extends State<SongPlayerScreen> {
                                   ),
                                   Text(
                                     _formatDuration(_totalDuration),
-                                    style: const TextStyle(
+                                    style: GoogleFonts.robotoFlex(
                                       color: Colors.white,
                                       fontSize: 12,
                                     ),
@@ -656,7 +657,7 @@ class _Placeholder extends StatelessWidget {
     return Center(
       child: Text(
         letter,
-        style: const TextStyle(
+        style: GoogleFonts.robotoFlex(
           color: Colors.white,
           fontSize: 72,
           fontWeight: FontWeight.bold,
@@ -769,7 +770,7 @@ class _ModeToggle extends StatelessWidget {
                     const SizedBox(width: 4),
                     Text(
                       'Song',
-                      style: TextStyle(
+                      style: GoogleFonts.robotoFlex(
                         color: mode == _SongViewMode.song
                             ? const Color(0xFF081944)
                             : Colors.white,
@@ -807,7 +808,7 @@ class _ModeToggle extends StatelessWidget {
                     const SizedBox(width: 4),
                     Text(
                       'Video',
-                      style: TextStyle(
+                      style: GoogleFonts.robotoFlex(
                         color: mode == _SongViewMode.video
                             ? const Color(0xFF081944)
                             : Colors.white,

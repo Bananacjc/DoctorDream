@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../data/models/article_recommendation.dart';
 import '../data/models/music_track.dart';
 import '../data/models/video_track.dart';
-import '../data/models/user_info.dart';
-import '../data/models/dream_entry.dart';
-import '../data/models/dream_analysis.dart';
-import '../data/local/local_database.dart';
+import '../view_models/recommendation_view_model.dart';
 import '../data/services/gemini_service.dart';
 import '../data/services/youtube_audio_service.dart';
 import '../data/models/recommendation_feedback.dart';
@@ -26,6 +24,9 @@ class RecommendScreen extends StatefulWidget {
 enum _RecommendationCategory { all, music, video, article }
 
 class _RecommendScreenState extends State<RecommendScreen> {
+  // View model for database access
+  late final RecommendationViewModel _viewModel;
+
   // State management
   bool _isLoading = true;
   String? _error;
@@ -47,14 +48,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
   bool _isPromptSubmitting = false;
   bool _hasTypedPrompt = false;
 
-  // User information (emotional state, and other details)
-  UserInfo _userInfo = UserInfo.defaultValues();
-
-  // Latest dream and analysis for personalized recommendations
-  DreamEntry? _latestDream;
-  DreamAnalysis? _latestDreamAnalysis;
-  List<RecommendationFeedback> _currentDreamFeedback = [];
-
   // Best-for-you pick derived from latest dream
   MusicTrack? _bestMusic;
   VideoTrack? _bestVideo;
@@ -63,6 +56,8 @@ class _RecommendScreenState extends State<RecommendScreen> {
   @override
   void initState() {
     super.initState();
+    _viewModel = RecommendationViewModel();
+    _viewModel.addListener(_onViewModelChanged);
     _promptController.addListener(() {
       final hasText = _promptController.text.isNotEmpty;
       if (hasText != _hasTypedPrompt) {
@@ -72,9 +67,23 @@ class _RecommendScreenState extends State<RecommendScreen> {
     _initData();
   }
 
+  void _onViewModelChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    _viewModel.removeListener(_onViewModelChanged);
+    _viewModel.dispose();
+    _promptController.dispose();
+    super.dispose();
+  }
+
   /// Determine the best item based on latest dream (simple priority)
   void _determineBestRecommendation() {
-    if (_latestDream == null) {
+    if (_viewModel.latestDream == null) {
       _bestMusic = null;
       _bestVideo = null;
       _bestArticle = null;
@@ -91,43 +100,10 @@ class _RecommendScreenState extends State<RecommendScreen> {
   }
 
   Future<void> _initData() async {
-    // Load real user profile first for personalized prompts
-    try {
-      final profile = await LocalDatabase.instance.fetchUserProfile();
-      _userInfo = UserInfo.fromUserProfile(profile);
-    } catch (_) {
-      _userInfo = UserInfo.defaultValues();
-    }
-
-    await _loadLatestDreamAnalysis();
+    // Initialize view model (loads user profile and latest dream analysis)
+    await _viewModel.initialize();
     if (mounted) {
       _fetchRecommendations();
-    }
-  }
-
-  /// Load the latest dream entry and its analysis
-  Future<void> _loadLatestDreamAnalysis() async {
-    try {
-      final result = await LocalDatabase.instance.getLatestDreamWithAnalysis();
-      if (result != null) {
-        final dream = result['dream'] as DreamEntry?;
-        final analysis = result['analysis'] as DreamAnalysis?;
-        
-        List<RecommendationFeedback> feedback = [];
-        if (dream != null) {
-          feedback = await LocalDatabase.instance.fetchFeedbackForDream(dream.dreamID);
-        }
-
-        if (mounted) {
-          setState(() {
-            _latestDream = dream;
-            _latestDreamAnalysis = analysis;
-            _currentDreamFeedback = feedback;
-          });
-        }
-      }
-    } catch (e) {
-      print('Error loading latest dream analysis: $e');
     }
   }
 
@@ -139,20 +115,24 @@ class _RecommendScreenState extends State<RecommendScreen> {
       buffer.writeln(customPrompt);
     }
     
-    if (_latestDream != null && _latestDreamAnalysis != null) {
+    final latestDream = _viewModel.latestDream;
+    final latestDreamAnalysis = _viewModel.latestDreamAnalysis;
+    
+    if (latestDream != null && latestDreamAnalysis != null) {
       buffer.writeln('\nBased on my latest dream analysis:');
-      buffer.writeln('Dream Title: ${_latestDream!.dreamTitle}');
-      buffer.writeln('Dream Analysis: ${_latestDreamAnalysis!.analysisContent}');
-    } else if (_latestDream != null) {
+      buffer.writeln('Dream Title: ${latestDream.dreamTitle}');
+      buffer.writeln('Dream Analysis: ${latestDreamAnalysis.analysisContent}');
+    } else if (latestDream != null) {
       buffer.writeln('\nBased on my latest dream:');
-      buffer.writeln('Dream Title: ${_latestDream!.dreamTitle}');
-      buffer.writeln('Dream Content: ${_latestDream!.dreamContent}');
+      buffer.writeln('Dream Title: ${latestDream.dreamTitle}');
+      buffer.writeln('Dream Content: ${latestDream.dreamContent}');
     }
     
     // Add feedback context if available
-    if (_currentDreamFeedback.isNotEmpty) {
+    final feedback = _viewModel.currentDreamFeedback;
+    if (feedback.isNotEmpty) {
       buffer.writeln('\nMy feedback on previous recommendations for this dream:');
-      for (final fb in _currentDreamFeedback) {
+      for (final fb in feedback) {
         buffer.writeln('- I rated "${fb.recommendationId}" ${fb.rating}/5 stars.');
         if (fb.comment != null && fb.comment!.isNotEmpty) {
           buffer.writeln('  Comment: "${fb.comment}"');
@@ -162,12 +142,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
     }
     
     return buffer.toString().trim();
-  }
-
-  @override
-  void dispose() {
-    _promptController.dispose();
-    super.dispose();
   }
 
   /// Check if Gemini response is an error message
@@ -234,7 +208,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
     });
     
     try {
-      await _loadLatestDreamAnalysis();
+      await _viewModel.loadLatestDreamAnalysis();
       await _fetchRecommendations();
     } catch (e) {
       if (mounted) {
@@ -280,7 +254,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
     });
 
     // Reload latest dream analysis before fetching recommendations
-    await _loadLatestDreamAnalysis();
+    await _viewModel.loadLatestDreamAnalysis();
     await _fetchRecommendations(prompt: _activePrompt);
     setState(() => _isPromptSubmitting = false);
   }
@@ -310,7 +284,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
       );
       final context = _buildDreamAnalysisContext(customPrompt);
       final geminiResult = await GeminiService.instance.recommendMusic(
-        userInfo: _userInfo,
+        userInfo: _viewModel.userInfo,
         additionalContext: context.isNotEmpty
             ? context
             : 'Based on my current emotional state and needs',
@@ -417,7 +391,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
       );
       final context = _buildDreamAnalysisContext(customPrompt);
       final geminiResult = await GeminiService.instance.recommendVideo(
-        userInfo: _userInfo,
+        userInfo: _viewModel.userInfo,
         additionalContext: context.isNotEmpty
             ? context
             : 'Based on my current emotional state and needs',
@@ -628,7 +602,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
     try {
       final context = _buildDreamAnalysisContext(customPrompt);
       final articles = await GeminiService.instance.recommendArticles(
-        userInfo: _userInfo,
+        userInfo: _viewModel.userInfo,
         count: 4,
         personalizationPrompt: context.isNotEmpty ? context : customPrompt,
       );
@@ -659,11 +633,11 @@ class _RecommendScreenState extends State<RecommendScreen> {
     required String type,
     required String title,
   }) async {
-    if (_latestDream == null) return;
+    if (_viewModel.latestDream == null) return;
     
     // 1. Check if user has already given feedback for this specific item
-    final dreamId = _latestDream!.dreamID;
-    final hasFeedback = await LocalDatabase.instance.hasFeedback(
+    final dreamId = _viewModel.latestDream!.dreamID;
+    final hasFeedback = await _viewModel.hasFeedback(
       recommendationId,
       dreamId,
     );
@@ -713,16 +687,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
                   timestamp: DateTime.now(),
                 );
 
-                await LocalDatabase.instance.saveFeedback(feedback);
-
-                // Refresh feedback list for context
-                final newFeedbackList =
-                    await LocalDatabase.instance.fetchFeedbackForDream(dreamId);
-                if (mounted) {
-                  setState(() {
-                    _currentDreamFeedback = newFeedbackList;
-                  });
-                }
+                await _viewModel.saveFeedback(feedback);
               },
             ),
           ),
@@ -872,10 +837,10 @@ class _RecommendScreenState extends State<RecommendScreen> {
                   padding: pagePadding.copyWith(top: 12.0, bottom: 8.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
-                    children: const [
+                    children: [
                       Text(
                         'Recommend today',
-                        style: TextStyle(
+                        style: GoogleFonts.robotoFlex(
                           fontSize: 24,
                           fontWeight: FontWeight.w700,
                         ),
@@ -884,7 +849,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
                       Text(
                         'Something here but i don'
                         't know',
-                        style: TextStyle(
+                        style: GoogleFonts.robotoFlex(
                           fontSize: 12,
                           color: Color(0xFF9AA5C4),
                         ),
@@ -1018,9 +983,9 @@ class _RecommendScreenState extends State<RecommendScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Best for you',
-                          style: TextStyle(
+                          style: GoogleFonts.robotoFlex(
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
                           ),
@@ -1192,7 +1157,7 @@ class _CategoryPill extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             label,
-            style: TextStyle(
+            style: GoogleFonts.robotoFlex(
               fontSize: 12,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               color: selected ? Colors.white : const Color(0xFFB4BEDA),
@@ -1218,7 +1183,7 @@ class _SectionRow extends StatelessWidget {
         Expanded(
           child: Row(
             children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text(title, style: GoogleFonts.robotoFlex(fontWeight: FontWeight.w700)),
               if ((trailing ?? '').isNotEmpty) ...[
                 const SizedBox(width: 8),
                 Expanded(
@@ -1226,7 +1191,7 @@ class _SectionRow extends StatelessWidget {
                     trailing!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: GoogleFonts.robotoFlex(
                       fontSize: 12,
                       color: onTap != null
                           ? const Color(0xFFB7B9FF)
@@ -1302,7 +1267,7 @@ class _MusicGrid extends StatelessWidget {
             children: [
               Text(
                 error!,
-                style: const TextStyle(color: Color(0xFF9AA5C4), fontSize: 12),
+                style: GoogleFonts.robotoFlex(color: Color(0xFF9AA5C4), fontSize: 12),
                 textAlign: TextAlign.center,
               ),
               if (onRetry != null) ...[
@@ -1446,7 +1411,7 @@ class _VideoGrid extends StatelessWidget {
             children: [
               Text(
                 error!,
-                style: const TextStyle(color: Color(0xFF9AA5C4), fontSize: 12),
+                style: GoogleFonts.robotoFlex(color: Color(0xFF9AA5C4), fontSize: 12),
                 textAlign: TextAlign.center,
               ),
               if (onRetry != null) ...[
@@ -1602,7 +1567,7 @@ class _VideoTrackCard extends StatelessWidget {
                         track.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: GoogleFonts.robotoFlex(
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
                           fontSize: 14,
@@ -1615,7 +1580,7 @@ class _VideoTrackCard extends StatelessWidget {
                           track.channel!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: GoogleFonts.robotoFlex(
                             fontSize: 12,
                             color: Color(0xFFB4BEDA),
                           ),
@@ -1628,7 +1593,7 @@ class _VideoTrackCard extends StatelessWidget {
                             track.note!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: GoogleFonts.robotoFlex(
                               fontSize: 10,
                               color: Color(0xFF9AA5C4),
                             ),
@@ -1710,7 +1675,7 @@ class _ArticleCarousel extends StatelessWidget {
             children: [
               Text(
                 error!,
-                style: const TextStyle(color: Color(0xFF9AA5C4), fontSize: 12),
+                style: GoogleFonts.robotoFlex(color: Color(0xFF9AA5C4), fontSize: 12),
                 textAlign: TextAlign.center,
               ),
               if (onRetry != null) ...[
@@ -1793,7 +1758,7 @@ class _ArticleGridExpanded extends StatelessWidget {
         children: [
           Text(
             error!,
-            style: const TextStyle(color: Color(0xFF9AA5C4), fontSize: 12),
+            style: GoogleFonts.robotoFlex(color: Color(0xFF9AA5C4), fontSize: 12),
             textAlign: TextAlign.center,
           ),
           if (onRetry != null) ...[
@@ -1892,7 +1857,7 @@ class _ArticleCard extends StatelessWidget {
                 _formatArticlePreview(article.title),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: GoogleFonts.robotoFlex(
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
@@ -1902,7 +1867,7 @@ class _ArticleCard extends StatelessWidget {
                 _formatArticlePreview(article.summary),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: GoogleFonts.robotoFlex(
                   color: Color(0xFFB4BEDA),
                   fontSize: 12,
                   height: 1.3,
@@ -1930,7 +1895,7 @@ class _ArticleCard extends StatelessWidget {
                             ),
                             child: Text(
                               tag,
-                              style: const TextStyle(
+                              style: GoogleFonts.robotoFlex(
                                 color: Color(0xFFB7B9FF),
                                 fontSize: 10,
                               ),
@@ -2009,7 +1974,7 @@ class _MusicTrackCard extends StatelessWidget {
                         track.title,
                         maxLines: 1, // Avoid text overflow
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: GoogleFonts.robotoFlex(
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
                           fontSize: 14,
@@ -2021,7 +1986,7 @@ class _MusicTrackCard extends StatelessWidget {
                         track.artist,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: GoogleFonts.robotoFlex(
                           fontSize: 12,
                           color: Color(0xFFB4BEDA),
                         ),
@@ -2034,7 +1999,7 @@ class _MusicTrackCard extends StatelessWidget {
                             track.note!,
                             maxLines: 1, // Reduced to 1 to save space
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: GoogleFonts.robotoFlex(
                               fontSize: 10,
                               color: Color(0xFF9AA5C4),
                             ),
@@ -2101,7 +2066,7 @@ class _Placeholder extends StatelessWidget {
       child: Center(
         child: Text(
           display,
-          style: const TextStyle(
+          style: GoogleFonts.robotoFlex(
             color: Colors.white,
             fontSize: 32,
             fontWeight: FontWeight.bold,
@@ -2225,7 +2190,7 @@ class _BestForYouCard extends StatelessWidget {
                               : isVideo
                                   ? 'Video'
                                   : 'Article',
-                          style: const TextStyle(
+                          style: GoogleFonts.robotoFlex(
                             color: Color(0xFFB7B9FF),
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -2238,7 +2203,7 @@ class _BestForYouCard extends StatelessWidget {
                       title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: GoogleFonts.robotoFlex(
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
                         fontSize: 16,
@@ -2250,7 +2215,7 @@ class _BestForYouCard extends StatelessWidget {
                       subtitle,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: GoogleFonts.robotoFlex(
                         fontSize: 12,
                         color: Color(0xFFB4BEDA),
                         height: 1.3,
