@@ -6,6 +6,7 @@ import 'dart:developer';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../models/article_recommendation.dart';
 import '../models/dream_entry.dart';
+import '../models/dream_diagnosis.dart';
 import '../models/user_info.dart';
 import 'gemini_prompts.dart';
 
@@ -23,6 +24,7 @@ class GeminiService {
   // Chat session for maintaining conversation context
   ChatSession? _chatSession;
   UserInfo? _currentChatUserInfo;
+  String? _currentChatContext;
 
   /// Gets a model with a specific system instruction
   GenerativeModel _getModelWithPrompt(String systemPrompt) {
@@ -69,8 +71,6 @@ class GeminiService {
     UserInfo? userInfo,
   }) async {
     try {
-      final info = userInfo ?? UserInfo.defaultValues();
-
       final systemPrompt = GeminiPrompts.buildDreamAnalysisPrompt();
 
       final model = _getModelWithPrompt(systemPrompt);
@@ -103,8 +103,6 @@ class GeminiService {
     String? previousDiagnosis,
   }) async {
     try {
-      final info = userInfo ?? UserInfo.defaultValues();
-
       String? cleanPrevious;
       if (previousDiagnosis != null && previousDiagnosis.isNotEmpty) {
         try {
@@ -161,25 +159,71 @@ class GeminiService {
     }
   }
 
-  /// Starts or resets chat session with user info
-  void _initializeChatSession(UserInfo userInfo) {
-    // If user info changed, reset the session
-    if (_currentChatUserInfo != userInfo) {
-      final prompt = GeminiPrompts.buildChatPrompt(userInfo);
+  /// Builds context string from latest dream and diagnosis
+  String _buildChatContext(DreamEntry? latestDream, DreamDiagnosis? latestDiagnosis) {
+    final buffer = StringBuffer();
+    
+    if (latestDream != null) {
+      buffer.writeln('--- Latest Dream Entry ---');
+      buffer.writeln('Title: ${latestDream.dreamTitle}');
+      buffer.writeln('Content: ${latestDream.dreamContent}');
+      buffer.writeln('Date: ${latestDream.createdAt.toIso8601String()}');
+      buffer.writeln('');
+    }
+    
+    if (latestDiagnosis != null) {
+      buffer.writeln('--- Latest Dream Diagnosis ---');
+      // Try to parse JSON and extract summary if available
+      try {
+        final jsonMap = jsonDecode(latestDiagnosis.diagnosisContent);
+        if (jsonMap['summary'] != null) {
+          buffer.writeln('Summary: ${jsonMap['summary']}');
+        }
+        if (jsonMap['content'] != null) {
+          buffer.writeln('Content: ${jsonMap['content']}');
+        } else {
+          buffer.writeln('Content: ${latestDiagnosis.diagnosisContent}');
+        }
+      } catch (_) {
+        // If not JSON, use raw content
+        buffer.writeln('Content: ${latestDiagnosis.diagnosisContent}');
+      }
+      buffer.writeln('Date: ${latestDiagnosis.createdAt.toIso8601String()}');
+    }
+    
+    return buffer.toString().trim();
+  }
+
+  /// Starts or resets chat session with user info and context
+  void _initializeChatSessionWithContext(UserInfo userInfo, String context) {
+    // If user info or context changed, reset the session
+    if (_currentChatUserInfo != userInfo || _currentChatContext != context) {
+      final prompt = GeminiPrompts.buildChatPrompt(userInfo, context: context);
       final model = _getModelWithPrompt(prompt);
       _chatSession = model.startChat();
       _currentChatUserInfo = userInfo;
+      _currentChatContext = context;
     }
   }
 
   /// General chat conversation (maintains context)
-  Future<String> chat(String userMessage, {UserInfo? userInfo}) async {
+  Future<String> chat(
+    String userMessage, {
+    UserInfo? userInfo,
+    DreamEntry? latestDream,
+    DreamDiagnosis? latestDiagnosis,
+  }) async {
     if (userMessage.trim().isEmpty) return '';
 
     try {
       // Use default user info if not provided
       final info = userInfo ?? UserInfo.defaultValues();
-      _initializeChatSession(info);
+      
+      // Build context string with dream and diagnosis info
+      final contextString = _buildChatContext(latestDream, latestDiagnosis);
+      
+      // Initialize or update chat session with context
+      _initializeChatSessionWithContext(info, contextString);
 
       // We use _chatSession.sendMessage to maintain context
       final response = await _chatSession!.sendMessage(

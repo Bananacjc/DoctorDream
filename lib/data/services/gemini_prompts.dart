@@ -23,11 +23,23 @@ ${userInfoText.isNotEmpty ? 'User Information:\n$userInfoText\n' : ''}
   }
 
   /// Prompt for general chat conversations
-  static String buildChatPrompt(UserInfo userInfo) {
+  static String buildChatPrompt(UserInfo userInfo, {String? context}) {
     final basePrompt = buildBasePrompt(userInfo);
+    final contextSection = context != null && context.isNotEmpty
+        ? '''
+  
+  Additional Context:
+  The user has shared some recent information that may be relevant to your conversation:
+  $context
+  
+  You can reference this information naturally in your responses when relevant, but don't force it into every message. Use it to provide more personalized and contextually aware support.
+  '''
+        : '';
+    
     return '''
   $basePrompt
   You are now in a general conversation mode. Respond naturally and empathetically to the user's messages, keeping their emotional state and context in mind.
+  $contextSection
   IMPORTANT:
   - I need you to keep your responses concise, not too long.
   - Aim for about 3–6 sentences (1-2 short paragraph) per reply.

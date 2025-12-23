@@ -327,7 +327,7 @@ class _CalmKitScreenState extends State<CalmKitScreen> {
                               crossAxisCount: 2,
                               crossAxisSpacing: 16,
                               mainAxisSpacing: 16,
-                              childAspectRatio: 0.7, // Optimized aspect ratio for card layout
+                              childAspectRatio: 0.65, // Optimized aspect ratio for card layout
                             ),
                             itemBuilder: (context, index) {
                               final item = _filteredItems[index];

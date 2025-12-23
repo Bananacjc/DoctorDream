@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../data/services/gemini_service.dart';
 import '../view_models/chat_view_model.dart';
-import '../data/models/chat_session.dart';
 import '../data/models/chat_message.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -155,6 +154,12 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     try {
+      // 0. Refresh latest dream and diagnosis to ensure we have current context
+      await Future.wait([
+        _viewModel.loadLatestDream(),
+        _viewModel.loadLatestDiagnosis(),
+      ]);
+
       // 1. Ensure session exists
       await _createNewSessionIfNeeded(text);
       final sessionId = _viewModel.currentSessionId!;
@@ -175,10 +180,12 @@ class _ChatScreenState extends State<ChatScreen> {
       // Save to DB
       await _viewModel.saveMessage(userMsg);
 
-      // 3. Get Gemini response
+      // 3. Get Gemini response (with latest dream and diagnosis context)
       final replyText = await GeminiService.instance.chat(
         text,
         userInfo: _viewModel.userInfo,
+        latestDream: _viewModel.latestDream,
+        latestDiagnosis: _viewModel.latestDiagnosis,
       );
 
       // 4. Create and save assistant message

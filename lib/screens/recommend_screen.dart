@@ -911,7 +911,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
 
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: pagePadding.copyWith(bottom: 12),
+                  padding: pagePadding.copyWith(top: 12, bottom: 12),
                   child: TextField(
                     controller: _promptController,
                     textInputAction: TextInputAction.search,
@@ -953,9 +953,10 @@ class _RecommendScreenState extends State<RecommendScreen> {
                                     ? const SizedBox(
                                         height: 14,
                                         width: 14,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Color(0xFF081944),
+                                        child: _ShimmerSkeleton(
+                                          width: 14,
+                                          height: 14,
+                                          borderRadius: BorderRadius.all(Radius.circular(7)),
                                         ),
                                       )
                                     : const Icon(Icons.send_rounded, size: 18),
@@ -967,7 +968,24 @@ class _RecommendScreenState extends State<RecommendScreen> {
                       fillColor: lightNavy,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
+                        borderSide: BorderSide(
+                          color: Colors.grey.shade300.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(
+                          color: Colors.grey.shade300.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(
+                          color: Colors.grey.shade300.withOpacity(0.5),
+                          width: 1.5,
+                        ),
                       ),
                     ),
                   ),
@@ -1029,6 +1047,12 @@ class _RecommendScreenState extends State<RecommendScreen> {
                                         'No recommendations')),
                           onTap: _error != null ? () => _fetchMusic() : null,
                         ),
+                        const SizedBox(height: 8),
+                        Divider(
+                          color: Colors.white.withOpacity(0.3),
+                          thickness: 1.5,
+                          height: 1,
+                        ),
                         const SizedBox(height: 12),
                         _MusicGrid(
                           isLoading: _isLoading,
@@ -1055,6 +1079,12 @@ class _RecommendScreenState extends State<RecommendScreen> {
                                         'No recommendations')),
                           onTap: _error != null ? () => _fetchVideo() : null,
                         ),
+                        const SizedBox(height: 8),
+                        Divider(
+                          color: Colors.white.withOpacity(0.3),
+                          thickness: 1.5,
+                          height: 1,
+                        ),
                         const SizedBox(height: 12),
                         _VideoGrid(
                           isLoading: _isLoading,
@@ -1080,6 +1110,12 @@ class _RecommendScreenState extends State<RecommendScreen> {
                                     (_articleInlineAnswer ??
                                         'No recommendations')),
                           onTap: _articleError != null ? _fetchArticles : null,
+                        ),
+                        const SizedBox(height: 8),
+                        Divider(
+                          color: Colors.white.withOpacity(0.3),
+                          thickness: 1.5,
+                          height: 1,
                         ),
                         const SizedBox(height: 12),
                         _selectedCategory == _RecommendationCategory.article
@@ -1204,10 +1240,11 @@ class _SectionRow extends StatelessWidget {
             ],
           ),
         ),
-        Icon(
-          onTap != null ? Icons.refresh : Icons.chevron_right,
-          color: const Color(0xFF9AA5C4),
-        ),
+        if (onTap != null)
+          Icon(
+            Icons.refresh,
+            color: const Color(0xFF9AA5C4),
+          ),
       ],
     );
 
@@ -1252,10 +1289,36 @@ class _MusicGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isLoading && tracks.isEmpty) {
-      return const SizedBox(
-        height: 120,
-        child: Center(child: CircularProgressIndicator(color: Colors.white)),
-      );
+      return layout == MusicLayout.grid
+          ? GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 0.7,
+              ),
+              itemCount: 4,
+              itemBuilder: (context, index) {
+                return _MusicSkeletonCard();
+              },
+            )
+          : SizedBox(
+              height: 195,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: 4,
+                padding: EdgeInsets.zero,
+                separatorBuilder: (_, __) => const SizedBox(width: 16),
+                itemBuilder: (context, index) {
+                  return SizedBox(
+                    width: 150,
+                    child: _MusicSkeletonCard(),
+                  );
+                },
+              ),
+            );
     }
 
     if (error != null && tracks.isEmpty) {
@@ -1344,7 +1407,7 @@ class _MusicGrid extends StatelessWidget {
           crossAxisCount: 2,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
-          childAspectRatio: 0.85,
+          childAspectRatio: 0.7,
         ),
         itemCount: tracks.length,
         itemBuilder: (context, index) {
@@ -1396,10 +1459,36 @@ class _VideoGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isLoading && tracks.isEmpty) {
-      return const SizedBox(
-        height: 120,
-        child: Center(child: CircularProgressIndicator(color: Colors.white)),
-      );
+      return layout == VideoLayout.grid
+          ? GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 0.7,
+              ),
+              itemCount: 4,
+              itemBuilder: (context, index) {
+                return _VideoSkeletonCard();
+              },
+            )
+          : SizedBox(
+              height: 195,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: 4,
+                padding: EdgeInsets.zero,
+                separatorBuilder: (_, __) => const SizedBox(width: 16),
+                itemBuilder: (context, index) {
+                  return SizedBox(
+                    width: 150,
+                    child: _VideoSkeletonCard(),
+                  );
+                },
+              ),
+            );
     }
 
     if (error != null && tracks.isEmpty) {
@@ -1440,7 +1529,7 @@ class _VideoGrid extends StatelessWidget {
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: 0.85,
+              childAspectRatio: 0.7,
               children: List.generate(
                 4,
                 (index) => Container(
@@ -1488,7 +1577,7 @@ class _VideoGrid extends StatelessWidget {
           crossAxisCount: 2,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
-          childAspectRatio: 0.85,
+          childAspectRatio: 0.7,
         ),
         itemCount: tracks.length,
         itemBuilder: (context, index) {
@@ -1535,10 +1624,6 @@ class _VideoTrackCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.5),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.1),
-            width: 1,
-          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.2),
@@ -1660,9 +1745,20 @@ class _ArticleCarousel extends StatelessWidget {
     const carouselHeight = 180.0;
 
     if (isLoading && articles.isEmpty) {
-      return const SizedBox(
+      return SizedBox(
         height: carouselHeight,
-        child: Center(child: CircularProgressIndicator(color: Colors.white)),
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: 4,
+          padding: EdgeInsets.zero,
+          separatorBuilder: (_, __) => const SizedBox(width: 16),
+          itemBuilder: (context, index) {
+            return SizedBox(
+              width: 220,
+              child: _ArticleSkeletonCard(),
+            );
+          },
+        ),
       );
     }
 
@@ -1745,10 +1841,25 @@ class _ArticleGridExpanded extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isLoading && articles.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 48),
-          child: CircularProgressIndicator(color: Colors.white),
+      final rowCount = 2; // 2 rows for 4 items
+      final itemHeight = 200.0;
+      final spacing = 12.0;
+      final totalHeight = (rowCount * itemHeight) + ((rowCount - 1) * spacing);
+
+      return SizedBox(
+        height: totalHeight,
+        child: GridView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 0.95,
+          ),
+          itemCount: 4,
+          itemBuilder: (context, index) {
+            return _ArticleSkeletonCard();
+          },
         ),
       );
     }
@@ -1829,82 +1940,87 @@ class _ArticleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Ink(
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.1),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+          width: 1,
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _formatArticlePreview(article.title),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.robotoFlex(
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _formatArticlePreview(article.summary),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.robotoFlex(
-                  color: Color(0xFFB4BEDA),
-                  fontSize: 12,
-                  height: 1.3,
-                ),
-              ),
-              const Spacer(),
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children:
-                    (article.tags.isNotEmpty
-                            ? article.tags.take(2)
-                            : const ['Mindfulness'])
-                        .map(
-                          (tag) => Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(
-                                0xFFB7B9FF,
-                              ).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              tag,
-                              style: GoogleFonts.robotoFlex(
-                                color: Color(0xFFB7B9FF),
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _formatArticlePreview(article.title),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.robotoFlex(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _formatArticlePreview(article.summary),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.robotoFlex(
+                    color: Color(0xFFB4BEDA),
+                    fontSize: 12,
+                    height: 1.3,
+                  ),
+                ),
+                const Spacer(),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children:
+                      (article.tags.isNotEmpty
+                              ? article.tags.take(2)
+                              : const ['Mindfulness'])
+                          .map(
+                            (tag) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(
+                                  0xFFB7B9FF,
+                                ).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                tag,
+                                style: GoogleFonts.robotoFlex(
+                                  color: Color(0xFFB7B9FF),
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1942,10 +2058,6 @@ class _MusicTrackCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.5),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.1),
-            width: 1,
-          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.2),
@@ -2249,6 +2361,372 @@ class _PlayGlyph extends StatelessWidget {
         shape: BoxShape.circle,
       ),
       child: Icon(Icons.play_arrow_rounded, color: color, size: 20),
+    );
+  }
+}
+
+/// Music skeleton card for loading state
+class _MusicSkeletonCard extends StatelessWidget {
+  const _MusicSkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return _ShimmerSkeleton(
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF2E3D6B),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 1. The Image Placeholder
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: Container(
+                    color: const Color(0xFF2E3D6B),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // 2. The Text Placeholders (Wrapped in Expanded to prevent overflow)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2E3D6B),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      height: 14,
+                      width: 100,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2E3D6B),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    // Removed the 3rd line to save vertical space
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _VideoSkeletonCard extends StatelessWidget {
+  const _VideoSkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return _ShimmerSkeleton(
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF2E3D6B),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: Container(
+                    color: const Color(0xFF2E3D6B),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2E3D6B),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      height: 14,
+                      width: 100,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2E3D6B),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Article skeleton card for loading state
+class _ArticleSkeletonCard extends StatelessWidget {
+  const _ArticleSkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return _ShimmerSkeleton(
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF2E3D6B),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.1),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 18,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2E3D6B),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                height: 12,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2E3D6B),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                height: 12,
+                width: 150,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2E3D6B),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                height: 12,
+                width: 120,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2E3D6B),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const Spacer(),
+              Row(
+                children: [
+                  Container(
+                    height: 20,
+                    width: 60,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2E3D6B),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    height: 20,
+                    width: 50,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2E3D6B),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shimmer skeleton loading widget with dark mode theme
+class _ShimmerSkeleton extends StatefulWidget {
+  final double? width;
+  final double? height;
+  final BorderRadius? borderRadius;
+  final Widget? child;
+
+  const _ShimmerSkeleton({
+    this.width,
+    this.height,
+    this.borderRadius,
+    this.child,
+  });
+
+  @override
+  State<_ShimmerSkeleton> createState() => _ShimmerSkeletonState();
+}
+
+class _ShimmerSkeletonState extends State<_ShimmerSkeleton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Calculate dimensions safely
+        final width = widget.width ??
+            (constraints.maxWidth.isFinite ? constraints.maxWidth : 200.0);
+        final height = widget.height ??
+            (constraints.maxHeight.isFinite ? constraints.maxHeight : 100.0);
+
+        // Define the width of the shimmer beam (e.g., 50% of the content width)
+        final shimmerWidth = width * 0.5;
+
+        return AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            // Calculate exact position to move from left (outside) to right (outside)
+            // Range: -shimmerWidth to width
+            final offset = (width + shimmerWidth) * _controller.value - shimmerWidth;
+
+            // Common shimmer gradient
+            final gradientDecoration = BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Colors.transparent,
+                  Colors.white.withOpacity(0.1),
+                  Colors.white.withOpacity(0.25),
+                  Colors.white.withOpacity(0.1),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
+              ),
+            );
+
+            // Structure 1: Wrapping a child widget (Skeleton Cards)
+            if (widget.child != null) {
+              return ClipRRect(
+                borderRadius: widget.borderRadius ?? BorderRadius.circular(8),
+                child: Stack(
+                  clipBehavior: Clip.hardEdge, // Crucial: prevents overflow
+                  children: [
+                    // The background content (grey boxes)
+                    widget.child!,
+
+                    // The moving Shimmer Overlay
+                    Positioned(
+                      top: 0,
+                      bottom: 0,
+                      left: 0,
+                      width: shimmerWidth, // Explicit width
+                      child: Transform.translate(
+                        offset: Offset(offset, 0),
+                        child: Container(
+                          decoration: gradientDecoration,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            // Structure 2: Standalone loading block (if used without child)
+            return ClipRRect(
+              borderRadius: widget.borderRadius ?? BorderRadius.circular(8),
+              child: Stack(
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  // Base background
+                  Container(
+                    width: width,
+                    height: height,
+                    color: const Color(0xFF2E3D6B),
+                  ),
+                  // Moving shimmer
+                  Positioned(
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    width: shimmerWidth,
+                    child: Transform.translate(
+                      offset: Offset(offset, 0),
+                      child: Container(
+                        decoration: gradientDecoration,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

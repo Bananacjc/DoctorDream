@@ -4,6 +4,8 @@ import '../data/local/local_database.dart';
 import '../data/models/user_info.dart';
 import '../data/models/chat_session.dart';
 import '../data/models/chat_message.dart';
+import '../data/models/dream_entry.dart';
+import '../data/models/dream_diagnosis.dart';
 
 class ChatViewModel extends ChangeNotifier {
   ChatViewModel({LocalDatabase? database})
@@ -25,6 +27,13 @@ class ChatViewModel extends ChangeNotifier {
 
   List<ChatMessage> _messages = [];
   List<ChatMessage> get messages => _messages;
+
+  // Latest dream and diagnosis for context
+  DreamEntry? _latestDream;
+  DreamEntry? get latestDream => _latestDream;
+
+  DreamDiagnosis? _latestDiagnosis;
+  DreamDiagnosis? get latestDiagnosis => _latestDiagnosis;
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
@@ -162,6 +171,32 @@ class ChatViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Load latest dream entry
+  Future<void> loadLatestDream() async {
+    try {
+      final dreams = await _database.fetchDreamEntries();
+      _latestDream = dreams.isNotEmpty ? dreams.first : null;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading latest dream: $e');
+      _latestDream = null;
+      notifyListeners();
+    }
+  }
+
+  /// Load latest diagnosis
+  Future<void> loadLatestDiagnosis() async {
+    try {
+      final diagnoses = await _database.fetchDreamDiagnosis();
+      _latestDiagnosis = diagnoses.isNotEmpty ? diagnoses.first : null;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading latest diagnosis: $e');
+      _latestDiagnosis = null;
+      notifyListeners();
+    }
+  }
+
   /// Initialize chat data
   Future<void> initialize() async {
     _isLoading = true;
@@ -171,6 +206,8 @@ class ChatViewModel extends ChangeNotifier {
       await Future.wait([
         loadUserProfile(),
         loadSessions(),
+        loadLatestDream(),
+        loadLatestDiagnosis(),
       ]);
     } finally {
       _isLoading = false;
