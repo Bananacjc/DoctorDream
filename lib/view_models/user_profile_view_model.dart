@@ -25,14 +25,11 @@ class UserProfileViewModel extends ChangeNotifier {
     notifyListeners();
     try {
       var fetchedProfile = await _database.fetchUserProfile();
-      if (_shouldSeedDemoProfile(fetchedProfile)) {
-        fetchedProfile = await _database.upsertUserProfile(_demoProfile);
-      }
       _profile = fetchedProfile;
     } catch (error, stackTrace) {
       debugPrint('Failed to load profile: $error\n$stackTrace');
-      _profile = _demoProfile;
-      _errorMessage = 'Unable to load profile. Showing demo details.';
+      _profile = UserProfile.empty();
+      _errorMessage = 'Unable to load profile.';
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -57,22 +54,6 @@ class UserProfileViewModel extends ChangeNotifier {
     }
   }
 
-  bool _shouldSeedDemoProfile(UserProfile profile) {
-    return profile.fullName.isEmpty &&
-        profile.email.isEmpty &&
-        profile.phone.isEmpty;
-  }
-
-  UserProfile get _demoProfile => UserProfile(
-        fullName: 'Jamie Walker',
-        pronouns: 'they / them',
-        birthday: '1995-08-16',
-        email: 'jamie.walker@example.com',
-        phone: '+1 202 555 0168',
-        location: 'Seattle, WA',
-        notes:
-            'Loves ambient playlists before bed.\nReminders: breathe, hydrate, stretch.',
-      );
 }
 
 

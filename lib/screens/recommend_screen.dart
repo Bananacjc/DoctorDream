@@ -846,14 +846,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
                         ),
                       ),
                       SizedBox(height: 6),
-                      Text(
-                        'Something here but i don'
-                        't know',
-                        style: GoogleFonts.robotoFlex(
-                          fontSize: 12,
-                          color: Color(0xFF9AA5C4),
-                        ),
-                      ),
                     ],
                   ),
                 ),

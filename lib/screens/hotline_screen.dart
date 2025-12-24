@@ -51,20 +51,6 @@ class _HotlineScreenState extends State<HotlineScreen> {
     _initLocationAndData();
   }
 
-  // Future<void> _loadEnvAndInit() async {
-  //   try {
-  //     // Ensure .env is loaded (if not already in main)
-  //     await dotenv.load(fileName: ".env");
-  //     _googleApiKey = dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '';
-  //     _initLocationAndData();
-  //   } catch (e) {
-  //     print("Error loading .env: $e");
-  //     // Fallback or handle error
-  //     _googleApiKey = '';
-  //     _initLocationAndData();
-  //   }
-  // }
-
   Future<void> _initLocationAndData() async {
     setState(() {
       _isLoading = true;
@@ -133,7 +119,7 @@ class _HotlineScreenState extends State<HotlineScreen> {
          _clinics = [
            Clinic(
              name: "Please Configure API Key",
-             address: "Add GOOGLE_MAPS_API_KEY in .env file",
+             address: "Add GOOGLE_MAPS_API_KEY",
              rating: 5.0,
              userRatingsTotal: 1,
              lat: position.latitude + 0.001,
@@ -235,13 +221,16 @@ class _HotlineScreenState extends State<HotlineScreen> {
   }
 
   void _updateMarkers() {
-    _markers = _clinics.map((clinic) {
-      return Marker(
-        markerId: MarkerId(clinic.placeId),
-        position: LatLng(clinic.lat, clinic.lng),
-        infoWindow: InfoWindow(title: clinic.name, snippet: clinic.address),
-      );
-    }).toSet();
+    setState(() {
+      _markers = _clinics.map((clinic) {
+        return Marker(
+          markerId: MarkerId(clinic.placeId),
+          position: LatLng(clinic.lat, clinic.lng),
+          infoWindow: InfoWindow(title: clinic.name, snippet: clinic.address),
+        );
+      }).toSet();
+    });
+    print('Updated ${_markers.length} markers on map');
   }
 
   Future<void> _makePhoneCall(String phoneNumber) async {
@@ -416,7 +405,7 @@ class _HotlineScreenState extends State<HotlineScreen> {
                                   ),
                                   SizedBox(height: 8),
                                   Text(
-                                    "To see nearby clinics, add `GOOGLE_MAPS_API_KEY=your_key` in the `.env` file at the root of your project.",
+                                    "To see nearby clinics, add `GOOGLE_MAPS_API_KEY=your_key`.",
                                     style: TextStyle(color: Colors.orange[900], fontSize: 13),
                                   ),
                                 ],
@@ -449,10 +438,26 @@ class _HotlineScreenState extends State<HotlineScreen> {
                                   target: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
                                   zoom: 13,
                                 ),
+                                mapType: MapType.normal,
                                 markers: _markers,
                                 myLocationEnabled: true,
                                 myLocationButtonEnabled: true,
-                                onMapCreated: (controller) => _mapController = controller,
+                                zoomControlsEnabled: true,
+                                compassEnabled: true,
+                                onMapCreated: (GoogleMapController controller) {
+                                  _mapController = controller;
+                                  print('GoogleMap created - checking if tiles load...');
+                                  // Try to move camera to ensure map loads
+                                  controller.animateCamera(
+                                    CameraUpdate.newLatLngZoom(
+                                      LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+                                      13,
+                                    ),
+                                  );
+                                },
+                                onCameraMoveStarted: () {
+                                  print('Camera move started - map is interactive');
+                                },
                               ),
                             ),
                           ),
