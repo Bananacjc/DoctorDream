@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../data/local/local_database.dart';
 import '../data/models/music_track.dart';
 import '../data/models/video_track.dart';
@@ -326,7 +327,7 @@ class _CalmKitScreenState extends State<CalmKitScreen> {
                               crossAxisCount: 2,
                               crossAxisSpacing: 16,
                               mainAxisSpacing: 16,
-                              childAspectRatio: 0.7, // Optimized aspect ratio for card layout
+                              childAspectRatio: 0.65, // Optimized aspect ratio for card layout
                             ),
                             itemBuilder: (context, index) {
                               final item = _filteredItems[index];
@@ -339,16 +340,16 @@ class _CalmKitScreenState extends State<CalmKitScreen> {
                                     builder: (BuildContext context) {
                                       return AlertDialog(
                                         backgroundColor: const Color(0xFF0D2357),
-                                        title: const Text("Confirm", style: TextStyle(color: Colors.white)),
-                                        content: const Text("Remove this item from your Calm Kit?", style: TextStyle(color: Colors.white70)),
+                                        title: Text("Confirm", style: GoogleFonts.robotoFlex(color: Colors.white)),
+                                        content: Text("Remove this item from your Calm Kit?", style: GoogleFonts.robotoFlex(color: Colors.white70)),
                                         actions: <Widget>[
                                           TextButton(
                                             onPressed: () => Navigator.of(context).pop(false),
-                                            child: const Text("Cancel", style: TextStyle(color: Colors.white54)),
+                                            child: Text("Cancel", style: GoogleFonts.robotoFlex(color: Colors.white54)),
                                           ),
                                           TextButton(
                                             onPressed: () => Navigator.of(context).pop(true),
-                                            child: const Text("Remove", style: TextStyle(color: Colors.redAccent)),
+                                            child: Text("Remove", style: GoogleFonts.robotoFlex(color: Colors.redAccent)),
                                           ),
                                         ],
                                       );
@@ -413,7 +414,7 @@ class _FilterChip extends StatelessWidget {
         child: Center(
           child: Text(
             label,
-            style: TextStyle(
+            style: GoogleFonts.robotoFlex(
               color: isSelected ? const Color(0xFF081944) : Colors.white,
               fontWeight: FontWeight.w600,
               fontSize: 14,
@@ -469,7 +470,7 @@ class _EmptyState extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             message,
-            style: const TextStyle(
+            style: GoogleFonts.robotoFlex(
               color: Colors.white60,
               fontSize: 16,
               height: 1.5,
@@ -563,7 +564,7 @@ class _CalmResourceCard extends StatelessWidget {
                             const SizedBox(width: 4),
                             Text(
                               item.type[0].toUpperCase() + item.type.substring(1),
-                              style: const TextStyle(
+                              style: GoogleFonts.robotoFlex(
                                 color: Colors.white,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w500,
@@ -609,7 +610,7 @@ class _CalmResourceCard extends StatelessWidget {
                         item.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: GoogleFonts.robotoFlex(
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                           fontSize: 14,
@@ -621,7 +622,7 @@ class _CalmResourceCard extends StatelessWidget {
                         item.subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: GoogleFonts.robotoFlex(
                           fontSize: 12,
                           color: Colors.white.withOpacity(0.6),
                         ),
@@ -630,7 +631,7 @@ class _CalmResourceCard extends StatelessWidget {
                       Text(
                          // Display Saved Time (Relative or simple date)
                          _formatDate(item.savedAt),
-                         style: TextStyle(
+                         style: GoogleFonts.robotoFlex(
                            fontSize: 10,
                            color: Colors.white.withOpacity(0.4),
                            fontStyle: FontStyle.italic,
@@ -745,7 +746,7 @@ class _Placeholder extends StatelessWidget {
       child: Center(
         child: Text(
           display,
-          style: const TextStyle(
+          style: GoogleFonts.robotoFlex(
             fontSize: 32,
             fontWeight: FontWeight.bold,
             color: Colors.white,

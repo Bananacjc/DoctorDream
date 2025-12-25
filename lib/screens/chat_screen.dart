@@ -3,10 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../data/services/gemini_service.dart';
-import '../data/models/user_info.dart';
-import '../data/local/local_database.dart';
-import '../data/models/chat_session.dart';
+import '../view_models/chat_view_model.dart';
 import '../data/models/chat_message.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -26,22 +25,16 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  // View model for database access
+  late final ChatViewModel _viewModel;
+
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
 
-  final List<ChatMessage> _messages = [];
   bool _isSending = false;
-  bool _isLoadingHistory = false;
   bool _isActive = true; // Track if chat tab is active
-
-  // Session management
-  String? _currentSessionId;
-  List<ChatSession> _sessions = [];
-
-  // User information
-  UserInfo _userInfo = UserInfo.defaultValues();
 
   static const Color navy = Color(0xFF081944);
   static const Color accent = Color(0xFFB7B9FF);
@@ -51,10 +44,18 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    _viewModel = ChatViewModel();
+    _viewModel.addListener(_onViewModelChanged);
     // Listen to active tab changes
     widget.activeTabNotifier?.addListener(_onActiveTabChanged);
     _isActive = widget.activeTabNotifier?.value == 3;
     _initChat();
+  }
+
+  void _onViewModelChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _onActiveTabChanged() {
@@ -74,6 +75,8 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     widget.activeTabNotifier?.removeListener(_onActiveTabChanged);
+    _viewModel.removeListener(_onViewModelChanged);
+    _viewModel.dispose();
     _textController.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
@@ -81,16 +84,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initChat() async {
-    // Load real user profile for personalization
-    try {
-      final profile = await LocalDatabase.instance.fetchUserProfile();
-      _userInfo = UserInfo.fromUserProfile(profile);
-    } catch (_) {
-      _userInfo = UserInfo.defaultValues();
-    }
-
-    await _loadSessions();
-    await _loadSessions();
+    // Initialize view model (loads user profile and sessions)
+    await _viewModel.initialize();
 
     if (widget.initialMessage != null && widget.isAiInitiated) {
       await _handleIncomingGreeting(widget.initialMessage!);
@@ -100,14 +95,14 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _handleIncomingGreeting(String greetingText) async {
-    String sesstionTitle = "Dream Insight";
+    String sessionTitle = "Dream Insight";
 
     if (greetingText.length > 20) {
-      sesstionTitle = '${greetingText.substring(0, 20)}...';
+      sessionTitle = '${greetingText.substring(0, 20)}...';
     }
 
-    await _createNewSessionIfNeeded(sesstionTitle);
-    final sessionId = _currentSessionId!;
+    await _createNewSessionIfNeeded(sessionTitle);
+    final sessionId = _viewModel.currentSessionId!;
 
     final assistantMsg = ChatMessage(
       id: const Uuid().v4(),
@@ -118,50 +113,22 @@ class _ChatScreenState extends State<ChatScreen> {
     );
 
     if (mounted) {
-      setState(() {
-        _messages.add(assistantMsg);
-      });
+      _viewModel.addMessage(assistantMsg);
       _scrollToBottom();
 
-      await LocalDatabase.instance.saveChatMessage(assistantMsg);
-
-      await _loadSessions();
-    }
-  }
-
-
-  Future<void> _loadSessions() async {
-    final sessions = await LocalDatabase.instance.fetchChatSessions();
-    if (mounted) {
-      setState(() {
-        _sessions = sessions;
-      });
+      await _viewModel.saveMessage(assistantMsg);
     }
   }
 
   Future<void> _loadSessionMessages(String sessionId) async {
-    setState(() {
-      _isLoadingHistory = true;
-      _currentSessionId = sessionId;
-      _messages.clear();
-    });
-
-    final messages = await LocalDatabase.instance.fetchChatMessages(sessionId);
-
+    await _viewModel.loadSessionMessages(sessionId);
     if (mounted) {
-      setState(() {
-        _messages.addAll(messages);
-        _isLoadingHistory = false;
-      });
       _scrollToBottom();
     }
   }
 
   Future<void> _startNewSession({String? withMessage}) async {
-    setState(() {
-      _currentSessionId = null;
-      _messages.clear();
-    });
+    _viewModel.clearCurrentSession();
 
     if (withMessage != null) {
       _textController.text = withMessage;
@@ -170,29 +137,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _createNewSessionIfNeeded(String firstMessageText) async {
-    if (_currentSessionId == null) {
-      final newSessionId = const Uuid().v4();
-      final now = DateTime.now();
-
-      // Use first message as title (truncated)
-      String title = firstMessageText;
-      if (title.length > 30) {
-        title = '${title.substring(0, 30)}...';
-      }
-
-      final session = ChatSession(
-        id: newSessionId,
-        title: title,
-        createdAt: now,
-        updatedAt: now,
-      );
-
-      await LocalDatabase.instance.createChatSession(session);
-
-      setState(() {
-        _currentSessionId = newSessionId;
-        _sessions.insert(0, session); // Add to top of list
-      });
+    if (_viewModel.currentSessionId == null) {
+      await _viewModel.createSession(firstMessageText);
     }
   }
 
@@ -208,9 +154,15 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     try {
+      // 0. Refresh latest dream and diagnosis to ensure we have current context
+      await Future.wait([
+        _viewModel.loadLatestDream(),
+        _viewModel.loadLatestDiagnosis(),
+      ]);
+
       // 1. Ensure session exists
       await _createNewSessionIfNeeded(text);
-      final sessionId = _currentSessionId!;
+      final sessionId = _viewModel.currentSessionId!;
 
       // 2. Create and save user message
       final userMsg = ChatMessage(
@@ -222,18 +174,18 @@ class _ChatScreenState extends State<ChatScreen> {
       );
 
       // Add to UI immediately
-      setState(() {
-        _messages.add(userMsg);
-      });
+      _viewModel.addMessage(userMsg);
       _scrollToBottom();
 
       // Save to DB
-      await LocalDatabase.instance.saveChatMessage(userMsg);
+      await _viewModel.saveMessage(userMsg);
 
-      // 3. Get Gemini response
+      // 3. Get Gemini response (with latest dream and diagnosis context)
       final replyText = await GeminiService.instance.chat(
         text,
-        userInfo: _userInfo,
+        userInfo: _viewModel.userInfo,
+        latestDream: _viewModel.latestDream,
+        latestDiagnosis: _viewModel.latestDiagnosis,
       );
 
       // 4. Create and save assistant message
@@ -246,31 +198,24 @@ class _ChatScreenState extends State<ChatScreen> {
       );
 
       if (mounted) {
-        setState(() {
-          _messages.add(assistantMsg);
-        });
-        await LocalDatabase.instance.saveChatMessage(assistantMsg);
-
-        // Update session list order (since updated_at changed)
-        _loadSessions();
+        _viewModel.addMessage(assistantMsg);
+        await _viewModel.saveMessage(assistantMsg);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error: $e')));
-        setState(() {
-          _messages.add(
-            ChatMessage(
-              id: const Uuid().v4(),
-              sessionId: _currentSessionId ?? '',
-              text:
-                  "Sorry, I had trouble responding just now. Please try again.",
-              isUser: false,
-              createdAt: DateTime.now(),
-            ),
-          );
-        });
+        _viewModel.addMessage(
+          ChatMessage(
+            id: const Uuid().v4(),
+            sessionId: _viewModel.currentSessionId ?? '',
+            text:
+                "Sorry, I had trouble responding just now. Please try again.",
+            isUser: false,
+            createdAt: DateTime.now(),
+          ),
+        );
       }
     } finally {
       if (mounted) {
@@ -307,9 +252,9 @@ class _ChatScreenState extends State<ChatScreen> {
             _scaffoldKey.currentState?.openDrawer();
           },
         ),
-        title: const Text(
+        title: Text(
           'Dream Companion',
-          style: TextStyle(
+          style: GoogleFonts.robotoFlex(
             fontSize: 24,
             fontWeight: FontWeight.w700,
             color: Colors.white,
@@ -343,11 +288,11 @@ class _ChatScreenState extends State<ChatScreen> {
           child: Column(
             children: [
               Expanded(
-                child: _isLoadingHistory
+                child: _viewModel.isLoadingHistory
                     ? const Center(
                         child: CircularProgressIndicator(color: Colors.white),
                       )
-                    : (_messages.isEmpty)
+                    : (_viewModel.messages.isEmpty)
                     ? _buildEmptyState()
                     : ListView.builder(
                         controller: _scrollController,
@@ -355,9 +300,9 @@ class _ChatScreenState extends State<ChatScreen> {
                           horizontal: 16,
                           vertical: 16,
                         ),
-                        itemCount: _messages.length,
+                        itemCount: _viewModel.messages.length,
                         itemBuilder: (_, index) =>
-                            _buildMessageBubble(_messages[index]),
+                            _buildMessageBubble(_viewModel.messages[index]),
                       ),
               ),
 
@@ -373,7 +318,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           color: Colors.white.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Row(
+                        child: Row(
                           children: [
                             SizedBox(
                               width: 14,
@@ -386,7 +331,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             SizedBox(width: 8),
                             Text(
                               'DoctorDream is thinking...',
-                              style: TextStyle(
+                              style: GoogleFonts.robotoFlex(
                                 color: Colors.white70,
                                 fontSize: 12,
                                 fontStyle: FontStyle.italic,
@@ -431,10 +376,10 @@ class _ChatScreenState extends State<ChatScreen> {
                       size: 28,
                     ),
                     const SizedBox(width: 16),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'Your Conversations',
-                        style: TextStyle(
+                        style: GoogleFonts.robotoFlex(
                           color: Colors.white,
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -458,7 +403,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
 
               Expanded(
-                child: _sessions.isEmpty
+                child: _viewModel.sessions.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -471,7 +416,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             const SizedBox(height: 16),
                             Text(
                               'No chat history yet',
-                              style: TextStyle(
+                              style: GoogleFonts.robotoFlex(
                                 color: Colors.white.withOpacity(0.5),
                               ),
                             ),
@@ -480,10 +425,10 @@ class _ChatScreenState extends State<ChatScreen> {
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.symmetric(vertical: 8),
-                        itemCount: _sessions.length,
+                        itemCount: _viewModel.sessions.length,
                         itemBuilder: (context, index) {
-                          final session = _sessions[index];
-                          final isSelected = session.id == _currentSessionId;
+                          final session = _viewModel.sessions[index];
+                          final isSelected = session.id == _viewModel.currentSessionId;
 
                           return Dismissible(
                             key: Key(session.id),
@@ -502,11 +447,8 @@ class _ChatScreenState extends State<ChatScreen> {
                               return true;
                             },
                             onDismissed: (direction) async {
-                              await LocalDatabase.instance.deleteChatSession(
-                                session.id,
-                              );
-                              _loadSessions();
-                              if (_currentSessionId == session.id) {
+                              await _viewModel.deleteSession(session.id);
+                              if (_viewModel.currentSessionId == session.id) {
                                 _startNewSession();
                               }
                             },
@@ -542,7 +484,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 ),
                                 title: Text(
                                   session.title,
-                                  style: TextStyle(
+                                  style: GoogleFonts.robotoFlex(
                                     color: isSelected
                                         ? Colors.white
                                         : Colors.white70,
@@ -558,7 +500,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                   DateFormat(
                                     'MMM d, h:mm a',
                                   ).format(session.updatedAt),
-                                  style: TextStyle(
+                                  style: GoogleFonts.robotoFlex(
                                     color: Colors.white38,
                                     fontSize: 12,
                                   ),
@@ -602,10 +544,10 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              const Text(
-                "Let’s talk to make life happier",
+              Text(
+                "Let's talk to make life happier",
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: GoogleFonts.robotoFlex(
                   color: Colors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
@@ -629,11 +571,11 @@ class _ChatScreenState extends State<ChatScreen> {
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(color: accent.withOpacity(0.2)),
                 ),
-                child: const Column(
+                child: Column(
                   children: [
                     Text(
                       "I'm here to listen.",
-                      style: TextStyle(
+                      style: GoogleFonts.robotoFlex(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
                         fontSize: 16,
@@ -643,7 +585,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     Text(
                       "Tell me about your day, your worries, your dreams, or just chat.",
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: GoogleFonts.robotoFlex(
                         color: Colors.white70,
                         height: 1.5,
                         fontSize: 14,
@@ -684,13 +626,13 @@ class _ChatScreenState extends State<ChatScreen> {
                 minLines: 1,
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => _sendMessage(),
-                style: TextStyle(
+                style: GoogleFonts.robotoFlex(
                   color: _isActive ? Colors.white : Colors.white38,
                   fontSize: 16,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Share with DoctorDream...',
-                  hintStyle: TextStyle(
+                  hintStyle: GoogleFonts.robotoFlex(
                     color: _isActive ? Colors.white38 : Colors.white24,
                   ),
                   hintMaxLines: 1,
@@ -781,7 +723,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 children: [
                   Text(
                     message.text,
-                    style: TextStyle(
+                    style: GoogleFonts.robotoFlex(
                       color: textColor,
                       fontSize: 15,
                       height: 1.4,
@@ -790,7 +732,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   const SizedBox(height: 4),
                   Text(
                     DateFormat('h:mm a').format(message.createdAt),
-                    style: TextStyle(
+                    style: GoogleFonts.robotoFlex(
                       color: textColor.withOpacity(0.5),
                       fontSize: 10,
                     ),

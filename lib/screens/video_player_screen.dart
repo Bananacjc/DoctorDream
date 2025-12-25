@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../data/models/video_track.dart';
@@ -322,9 +323,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
+        title: Text(
           'Now Playing',
-          style: TextStyle(color: Colors.white),
+          style: GoogleFonts.robotoFlex(color: Colors.white),
         ),
         actions: [
           IconButton(
@@ -347,15 +348,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 color: Colors.black,
                 child: Center(
                   child: _isLoading
-                      ? const Column(
+                      ? Column(
                           mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            CircularProgressIndicator(color: Colors.white),
-                            SizedBox(height: 16),
+                            const CircularProgressIndicator(color: Colors.white),
+                            const SizedBox(height: 16),
                             Text(
                               'Loading video…',
-                              style: TextStyle(color: Colors.white70),
+                              style: GoogleFonts.robotoFlex(color: Colors.white70),
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -369,7 +370,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                 children: [
                                   Text(
                                     _error!,
-                                    style: const TextStyle(
+                                    style: GoogleFonts.robotoFlex(
                                       color: Colors.redAccent,
                                       fontSize: 16,
                                     ),
@@ -426,7 +427,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     // Video name
                     Text(
                       _stripMarkdown(widget.track.title),
-                      style: const TextStyle(
+                      style: GoogleFonts.robotoFlex(
                         color: Colors.white,
                         fontSize: 24,
                         fontWeight: FontWeight.w600,
@@ -441,7 +442,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       const SizedBox(height: 8),
                       Text(
                         widget.track.channel!,
-                        style: const TextStyle(
+                        style: GoogleFonts.robotoFlex(
                           color: Color(0xFFB4BEDA),
                           fontSize: 16,
                         ),
@@ -464,7 +465,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                               children: [
                                 Text(
                                   _formatDuration(_currentPosition),
-                                  style: const TextStyle(
+                                  style: GoogleFonts.robotoFlex(
                                     color: Colors.white,
                                     fontSize: 12,
                                   ),
@@ -495,7 +496,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                 ),
                                 Text(
                                   _formatDuration(_totalDuration),
-                                  style: const TextStyle(
+                                  style: GoogleFonts.robotoFlex(
                                     color: Colors.white,
                                     fontSize: 12,
                                   ),

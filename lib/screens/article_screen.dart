@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../data/local/local_database.dart';
 import '../data/models/article_recommendation.dart';
@@ -122,7 +123,7 @@ class _ArticleScreenState extends State<ArticleScreen> {
                         ),
                         child: Text(
                           tag,
-                          style: const TextStyle(
+                          style: GoogleFonts.robotoFlex(
                             color: Color(0xFFB7B9FF),
                             fontSize: 12,
                           ),
@@ -172,9 +173,9 @@ class _ArticleScreenState extends State<ArticleScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Article details',
-                      style: TextStyle(
+                      style: GoogleFonts.robotoFlex(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
@@ -190,7 +191,7 @@ class _ArticleScreenState extends State<ArticleScreen> {
                   const SizedBox(height: 8),
                   Text(
                     mood,
-                    style: const TextStyle(
+                    style: GoogleFonts.robotoFlex(
                       color: Color(0xFFB7B9FF),
                       fontSize: 14,
                     ),
@@ -200,7 +201,7 @@ class _ArticleScreenState extends State<ArticleScreen> {
                   const SizedBox(height: 12),
                   Text(
                     summary,
-                    style: const TextStyle(
+                    style: GoogleFonts.robotoFlex(
                       color: Colors.white70,
                       fontSize: 14,
                       height: 1.4,
@@ -233,7 +234,7 @@ class _ArticleScreenState extends State<ArticleScreen> {
             padding: EdgeInsets.only(top: isFirst ? 0 : 16),
             child: Text(
               _cleanInlineMarkdown(heading),
-              style: const TextStyle(
+              style: GoogleFonts.robotoFlex(
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -255,18 +256,18 @@ class _ArticleScreenState extends State<ArticleScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 6),
                   child: Text(
                     '•',
-                    style: TextStyle(color: Colors.white, fontSize: 14),
+                    style: GoogleFonts.robotoFlex(color: Colors.white, fontSize: 14),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     bullet,
-                    style: const TextStyle(color: Colors.white, height: 1.5),
+                    style: GoogleFonts.robotoFlex(color: Colors.white, height: 1.5),
                   ),
                 ),
               ],
@@ -285,18 +286,18 @@ class _ArticleScreenState extends State<ArticleScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 2),
                   child: Text(
                     '•',
-                    style: TextStyle(color: Colors.white, fontSize: 14),
+                    style: GoogleFonts.robotoFlex(color: Colors.white, fontSize: 14),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     _cleanInlineMarkdown(numbered),
-                    style: const TextStyle(color: Colors.white, height: 1.5),
+                    style: GoogleFonts.robotoFlex(color: Colors.white, height: 1.5),
                   ),
                 ),
               ],
@@ -312,7 +313,7 @@ class _ArticleScreenState extends State<ArticleScreen> {
           padding: EdgeInsets.only(top: isFirst ? 0 : 12),
           child: Text(
             _cleanInlineMarkdown(line),
-            style: const TextStyle(color: Colors.white, height: 1.6),
+            style: GoogleFonts.robotoFlex(color: Colors.white, height: 1.6),
           ),
         ),
       );
@@ -321,9 +322,9 @@ class _ArticleScreenState extends State<ArticleScreen> {
 
     if (blocks.isEmpty) {
       blocks.add(
-        const Text(
+        Text(
           'No content available.',
-          style: TextStyle(color: Colors.white70),
+          style: GoogleFonts.robotoFlex(color: Colors.white70),
         ),
       );
     }

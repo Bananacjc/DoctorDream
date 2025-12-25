@@ -1,6 +1,6 @@
 {
-    "name": "doctor_dream",
-    "short_name": "doctor_dream",
+    "name": "Doctor Dream",
+    "short_name": "Doctor Dream",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

@@ -78,7 +78,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(
+                style: GoogleFonts.robotoFlex(
                   color: Colors.white,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -89,7 +89,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         content: Text(
           message,
-          style: const TextStyle(
+          style: GoogleFonts.robotoFlex(
             color: Colors.white70,
             fontSize: 14,
             height: 1.5,
@@ -98,9 +98,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
+            child: Text(
               'Got it',
-              style: TextStyle(color: Colors.white),
+              style: GoogleFonts.robotoFlex(color: Colors.white),
             ),
           ),
           if (trend == MoodTrend.declining)
@@ -114,9 +114,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 );
               },
-              child: const Text(
+              child: Text(
                 'View Safety Plans',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: GoogleFonts.robotoFlex(color: Colors.white, fontWeight: FontWeight.bold),
               ),
             ),
         ],
@@ -164,9 +164,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: pagePadding.copyWith(top: 12.0, bottom: 8.0),
-                  child: const Text(
+                  child: Text(
                     'User Central',
-                    style: TextStyle(
+                    style: GoogleFonts.robotoFlex(
                       fontSize: 24,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
@@ -240,9 +240,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Dream Frequency Per Week',
-                        style: TextStyle(
+                        style: GoogleFonts.robotoFlex(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
@@ -409,15 +409,15 @@ class _StreakCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               '$streak',
-              style: const TextStyle(
+              style: GoogleFonts.robotoFlex(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
               ),
             ),
-            const Text(
+            Text(
               'Day Streak',
-              style: TextStyle(
+              style: GoogleFonts.robotoFlex(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
                 color: Colors.black87,
@@ -433,7 +433,7 @@ class _StreakCard extends StatelessWidget {
                 ),
                 child: Text(
                   '${_daysUntilMilestone} days to ${_nextMilestone}',
-                  style: TextStyle(
+                  style: GoogleFonts.robotoFlex(
                     fontSize: 9,
                     color: Colors.black.withOpacity(0.7),
                     fontWeight: FontWeight.w500,
@@ -445,7 +445,7 @@ class _StreakCard extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 _encouragementMessage,
-                style: TextStyle(
+                style: GoogleFonts.robotoFlex(
                   fontSize: 10,
                   color: Colors.black.withOpacity(0.6),
                   fontStyle: FontStyle.italic,
@@ -537,7 +537,7 @@ class _MoodTrendCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               _trendText,
-              style: TextStyle(
+              style: GoogleFonts.robotoFlex(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: _trendColor,
@@ -554,7 +554,7 @@ class _MoodTrendCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               _insightText,
-              style: TextStyle(
+              style: GoogleFonts.robotoFlex(
                 fontSize: 9,
                 color: Colors.black.withOpacity(0.6),
                 fontStyle: FontStyle.italic,
@@ -644,7 +644,7 @@ class _LastSafetyPlanCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               plan?.title ?? 'No Plan',
-              style: const TextStyle(
+              style: GoogleFonts.robotoFlex(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
@@ -654,7 +654,7 @@ class _LastSafetyPlanCard extends StatelessWidget {
             ),
             Text(
               _displayText,
-              style: const TextStyle(
+              style: GoogleFonts.robotoFlex(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
                 color: Colors.black87,
@@ -670,7 +670,7 @@ class _LastSafetyPlanCard extends StatelessWidget {
                 ),
                 child: Text(
                   _actionText,
-                  style: TextStyle(
+                  style: GoogleFonts.robotoFlex(
                     fontSize: 9,
                     color: Colors.green.shade800,
                     fontWeight: FontWeight.w600,
@@ -695,10 +695,10 @@ class _DreamFrequencyGraph extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (data.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No data available',
-          style: TextStyle(color: Colors.white70),
+          style: GoogleFonts.robotoFlex(color: Colors.white70),
         ),
       );
     }
@@ -720,7 +720,7 @@ class _DreamFrequencyGraph extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 'Average: ${average.toStringAsFixed(1)} dreams/week',
-                style: TextStyle(
+                style: GoogleFonts.robotoFlex(
                   color: Colors.white.withOpacity(0.7),
                   fontSize: 11,
                   fontStyle: FontStyle.italic,
@@ -769,7 +769,7 @@ class _DreamFrequencyGraph extends StatelessWidget {
                           // Count label
                           Text(
                             '$count',
-                            style: const TextStyle(
+                            style: GoogleFonts.robotoFlex(
                               color: Colors.white,
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
@@ -793,7 +793,7 @@ class _DreamFrequencyGraph extends StatelessWidget {
             return Expanded(
               child: Text(
                 label,
-                style: const TextStyle(
+                style: GoogleFonts.robotoFlex(
                   color: Colors.white70,
                   fontSize: 9,
                 ),
@@ -827,9 +827,9 @@ class _EmptyGraphState extends StatelessWidget {
             color: Colors.white.withOpacity(0.5),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Start Your Journey',
-            style: TextStyle(
+            style: GoogleFonts.robotoFlex(
               color: Colors.white,
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -838,7 +838,7 @@ class _EmptyGraphState extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'Record your first dream to see your progress',
-            style: TextStyle(
+            style: GoogleFonts.robotoFlex(
               color: Colors.white.withOpacity(0.7),
               fontSize: 12,
             ),

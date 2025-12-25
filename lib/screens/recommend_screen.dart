@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../data/models/article_recommendation.dart';
 import '../data/models/music_track.dart';
 import '../data/models/video_track.dart';
-import '../data/models/user_info.dart';
-import '../data/models/dream_entry.dart';
-import '../data/models/dream_analysis.dart';
-import '../data/local/local_database.dart';
+import '../view_models/recommendation_view_model.dart';
 import '../data/services/gemini_service.dart';
 import '../data/services/youtube_audio_service.dart';
 import '../data/models/recommendation_feedback.dart';
@@ -26,6 +24,9 @@ class RecommendScreen extends StatefulWidget {
 enum _RecommendationCategory { all, music, video, article }
 
 class _RecommendScreenState extends State<RecommendScreen> {
+  // View model for database access
+  late final RecommendationViewModel _viewModel;
+
   // State management
   bool _isLoading = true;
   String? _error;
@@ -47,14 +48,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
   bool _isPromptSubmitting = false;
   bool _hasTypedPrompt = false;
 
-  // User information (emotional state, and other details)
-  UserInfo _userInfo = UserInfo.defaultValues();
-
-  // Latest dream and analysis for personalized recommendations
-  DreamEntry? _latestDream;
-  DreamAnalysis? _latestDreamAnalysis;
-  List<RecommendationFeedback> _currentDreamFeedback = [];
-
   // Best-for-you pick derived from latest dream
   MusicTrack? _bestMusic;
   VideoTrack? _bestVideo;
@@ -63,6 +56,8 @@ class _RecommendScreenState extends State<RecommendScreen> {
   @override
   void initState() {
     super.initState();
+    _viewModel = RecommendationViewModel();
+    _viewModel.addListener(_onViewModelChanged);
     _promptController.addListener(() {
       final hasText = _promptController.text.isNotEmpty;
       if (hasText != _hasTypedPrompt) {
@@ -72,9 +67,23 @@ class _RecommendScreenState extends State<RecommendScreen> {
     _initData();
   }
 
+  void _onViewModelChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    _viewModel.removeListener(_onViewModelChanged);
+    _viewModel.dispose();
+    _promptController.dispose();
+    super.dispose();
+  }
+
   /// Determine the best item based on latest dream (simple priority)
   void _determineBestRecommendation() {
-    if (_latestDream == null) {
+    if (_viewModel.latestDream == null) {
       _bestMusic = null;
       _bestVideo = null;
       _bestArticle = null;
@@ -91,43 +100,10 @@ class _RecommendScreenState extends State<RecommendScreen> {
   }
 
   Future<void> _initData() async {
-    // Load real user profile first for personalized prompts
-    try {
-      final profile = await LocalDatabase.instance.fetchUserProfile();
-      _userInfo = UserInfo.fromUserProfile(profile);
-    } catch (_) {
-      _userInfo = UserInfo.defaultValues();
-    }
-
-    await _loadLatestDreamAnalysis();
+    // Initialize view model (loads user profile and latest dream analysis)
+    await _viewModel.initialize();
     if (mounted) {
       _fetchRecommendations();
-    }
-  }
-
-  /// Load the latest dream entry and its analysis
-  Future<void> _loadLatestDreamAnalysis() async {
-    try {
-      final result = await LocalDatabase.instance.getLatestDreamWithAnalysis();
-      if (result != null) {
-        final dream = result['dream'] as DreamEntry?;
-        final analysis = result['analysis'] as DreamAnalysis?;
-        
-        List<RecommendationFeedback> feedback = [];
-        if (dream != null) {
-          feedback = await LocalDatabase.instance.fetchFeedbackForDream(dream.dreamID);
-        }
-
-        if (mounted) {
-          setState(() {
-            _latestDream = dream;
-            _latestDreamAnalysis = analysis;
-            _currentDreamFeedback = feedback;
-          });
-        }
-      }
-    } catch (e) {
-      print('Error loading latest dream analysis: $e');
     }
   }
 
@@ -139,20 +115,24 @@ class _RecommendScreenState extends State<RecommendScreen> {
       buffer.writeln(customPrompt);
     }
     
-    if (_latestDream != null && _latestDreamAnalysis != null) {
+    final latestDream = _viewModel.latestDream;
+    final latestDreamAnalysis = _viewModel.latestDreamAnalysis;
+    
+    if (latestDream != null && latestDreamAnalysis != null) {
       buffer.writeln('\nBased on my latest dream analysis:');
-      buffer.writeln('Dream Title: ${_latestDream!.dreamTitle}');
-      buffer.writeln('Dream Analysis: ${_latestDreamAnalysis!.analysisContent}');
-    } else if (_latestDream != null) {
+      buffer.writeln('Dream Title: ${latestDream.dreamTitle}');
+      buffer.writeln('Dream Analysis: ${latestDreamAnalysis.analysisContent}');
+    } else if (latestDream != null) {
       buffer.writeln('\nBased on my latest dream:');
-      buffer.writeln('Dream Title: ${_latestDream!.dreamTitle}');
-      buffer.writeln('Dream Content: ${_latestDream!.dreamContent}');
+      buffer.writeln('Dream Title: ${latestDream.dreamTitle}');
+      buffer.writeln('Dream Content: ${latestDream.dreamContent}');
     }
     
     // Add feedback context if available
-    if (_currentDreamFeedback.isNotEmpty) {
+    final feedback = _viewModel.currentDreamFeedback;
+    if (feedback.isNotEmpty) {
       buffer.writeln('\nMy feedback on previous recommendations for this dream:');
-      for (final fb in _currentDreamFeedback) {
+      for (final fb in feedback) {
         buffer.writeln('- I rated "${fb.recommendationId}" ${fb.rating}/5 stars.');
         if (fb.comment != null && fb.comment!.isNotEmpty) {
           buffer.writeln('  Comment: "${fb.comment}"');
@@ -162,12 +142,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
     }
     
     return buffer.toString().trim();
-  }
-
-  @override
-  void dispose() {
-    _promptController.dispose();
-    super.dispose();
   }
 
   /// Check if Gemini response is an error message
@@ -234,7 +208,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
     });
     
     try {
-      await _loadLatestDreamAnalysis();
+      await _viewModel.loadLatestDreamAnalysis();
       await _fetchRecommendations();
     } catch (e) {
       if (mounted) {
@@ -280,7 +254,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
     });
 
     // Reload latest dream analysis before fetching recommendations
-    await _loadLatestDreamAnalysis();
+    await _viewModel.loadLatestDreamAnalysis();
     await _fetchRecommendations(prompt: _activePrompt);
     setState(() => _isPromptSubmitting = false);
   }
@@ -310,7 +284,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
       );
       final context = _buildDreamAnalysisContext(customPrompt);
       final geminiResult = await GeminiService.instance.recommendMusic(
-        userInfo: _userInfo,
+        userInfo: _viewModel.userInfo,
         additionalContext: context.isNotEmpty
             ? context
             : 'Based on my current emotional state and needs',
@@ -417,7 +391,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
       );
       final context = _buildDreamAnalysisContext(customPrompt);
       final geminiResult = await GeminiService.instance.recommendVideo(
-        userInfo: _userInfo,
+        userInfo: _viewModel.userInfo,
         additionalContext: context.isNotEmpty
             ? context
             : 'Based on my current emotional state and needs',
@@ -628,7 +602,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
     try {
       final context = _buildDreamAnalysisContext(customPrompt);
       final articles = await GeminiService.instance.recommendArticles(
-        userInfo: _userInfo,
+        userInfo: _viewModel.userInfo,
         count: 4,
         personalizationPrompt: context.isNotEmpty ? context : customPrompt,
       );
@@ -659,11 +633,11 @@ class _RecommendScreenState extends State<RecommendScreen> {
     required String type,
     required String title,
   }) async {
-    if (_latestDream == null) return;
+    if (_viewModel.latestDream == null) return;
     
     // 1. Check if user has already given feedback for this specific item
-    final dreamId = _latestDream!.dreamID;
-    final hasFeedback = await LocalDatabase.instance.hasFeedback(
+    final dreamId = _viewModel.latestDream!.dreamID;
+    final hasFeedback = await _viewModel.hasFeedback(
       recommendationId,
       dreamId,
     );
@@ -713,16 +687,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
                   timestamp: DateTime.now(),
                 );
 
-                await LocalDatabase.instance.saveFeedback(feedback);
-
-                // Refresh feedback list for context
-                final newFeedbackList =
-                    await LocalDatabase.instance.fetchFeedbackForDream(dreamId);
-                if (mounted) {
-                  setState(() {
-                    _currentDreamFeedback = newFeedbackList;
-                  });
-                }
+                await _viewModel.saveFeedback(feedback);
               },
             ),
           ),
@@ -872,23 +837,15 @@ class _RecommendScreenState extends State<RecommendScreen> {
                   padding: pagePadding.copyWith(top: 0, bottom: 8.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
-                    children: const [
+                    children: [
                       Text(
                         'Recommend today',
-                        style: TextStyle(
+                        style: GoogleFonts.robotoFlex(
                           fontSize: 24,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                       SizedBox(height: 6),
-                      Text(
-                        'Something here but i don'
-                        't know',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF9AA5C4),
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -946,7 +903,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
 
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: pagePadding.copyWith(bottom: 12),
+                  padding: pagePadding.copyWith(top: 12, bottom: 12),
                   child: TextField(
                     controller: _promptController,
                     textInputAction: TextInputAction.search,
@@ -988,9 +945,10 @@ class _RecommendScreenState extends State<RecommendScreen> {
                                     ? const SizedBox(
                                         height: 14,
                                         width: 14,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Color(0xFF081944),
+                                        child: _ShimmerSkeleton(
+                                          width: 14,
+                                          height: 14,
+                                          borderRadius: BorderRadius.all(Radius.circular(7)),
                                         ),
                                       )
                                     : const Icon(Icons.send_rounded, size: 18),
@@ -1002,7 +960,24 @@ class _RecommendScreenState extends State<RecommendScreen> {
                       fillColor: lightNavy,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
+                        borderSide: BorderSide(
+                          color: Colors.grey.shade300.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(
+                          color: Colors.grey.shade300.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(
+                          color: Colors.grey.shade300.withOpacity(0.5),
+                          width: 1.5,
+                        ),
                       ),
                     ),
                   ),
@@ -1018,9 +993,9 @@ class _RecommendScreenState extends State<RecommendScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Best for you',
-                          style: TextStyle(
+                          style: GoogleFonts.robotoFlex(
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
                           ),
@@ -1064,6 +1039,12 @@ class _RecommendScreenState extends State<RecommendScreen> {
                                         'No recommendations')),
                           onTap: _error != null ? () => _fetchMusic() : null,
                         ),
+                        const SizedBox(height: 8),
+                        Divider(
+                          color: Colors.white.withOpacity(0.3),
+                          thickness: 1.5,
+                          height: 1,
+                        ),
                         const SizedBox(height: 12),
                         _MusicGrid(
                           isLoading: _isLoading,
@@ -1090,6 +1071,12 @@ class _RecommendScreenState extends State<RecommendScreen> {
                                         'No recommendations')),
                           onTap: _error != null ? () => _fetchVideo() : null,
                         ),
+                        const SizedBox(height: 8),
+                        Divider(
+                          color: Colors.white.withOpacity(0.3),
+                          thickness: 1.5,
+                          height: 1,
+                        ),
                         const SizedBox(height: 12),
                         _VideoGrid(
                           isLoading: _isLoading,
@@ -1115,6 +1102,12 @@ class _RecommendScreenState extends State<RecommendScreen> {
                                     (_articleInlineAnswer ??
                                         'No recommendations')),
                           onTap: _articleError != null ? _fetchArticles : null,
+                        ),
+                        const SizedBox(height: 8),
+                        Divider(
+                          color: Colors.white.withOpacity(0.3),
+                          thickness: 1.5,
+                          height: 1,
                         ),
                         const SizedBox(height: 12),
                         _selectedCategory == _RecommendationCategory.article
@@ -1192,7 +1185,7 @@ class _CategoryPill extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             label,
-            style: TextStyle(
+            style: GoogleFonts.robotoFlex(
               fontSize: 12,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               color: selected ? Colors.white : const Color(0xFFB4BEDA),
@@ -1218,7 +1211,7 @@ class _SectionRow extends StatelessWidget {
         Expanded(
           child: Row(
             children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text(title, style: GoogleFonts.robotoFlex(fontWeight: FontWeight.w700)),
               if ((trailing ?? '').isNotEmpty) ...[
                 const SizedBox(width: 8),
                 Expanded(
@@ -1226,7 +1219,7 @@ class _SectionRow extends StatelessWidget {
                     trailing!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: GoogleFonts.robotoFlex(
                       fontSize: 12,
                       color: onTap != null
                           ? const Color(0xFFB7B9FF)
@@ -1239,10 +1232,11 @@ class _SectionRow extends StatelessWidget {
             ],
           ),
         ),
-        Icon(
-          onTap != null ? Icons.refresh : Icons.chevron_right,
-          color: const Color(0xFF9AA5C4),
-        ),
+        if (onTap != null)
+          Icon(
+            Icons.refresh,
+            color: const Color(0xFF9AA5C4),
+          ),
       ],
     );
 
@@ -1287,10 +1281,36 @@ class _MusicGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isLoading && tracks.isEmpty) {
-      return const SizedBox(
-        height: 120,
-        child: Center(child: CircularProgressIndicator(color: Colors.white)),
-      );
+      return layout == MusicLayout.grid
+          ? GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 0.7,
+              ),
+              itemCount: 4,
+              itemBuilder: (context, index) {
+                return _MusicSkeletonCard();
+              },
+            )
+          : SizedBox(
+              height: 195,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: 4,
+                padding: EdgeInsets.zero,
+                separatorBuilder: (_, __) => const SizedBox(width: 16),
+                itemBuilder: (context, index) {
+                  return SizedBox(
+                    width: 150,
+                    child: _MusicSkeletonCard(),
+                  );
+                },
+              ),
+            );
     }
 
     if (error != null && tracks.isEmpty) {
@@ -1302,7 +1322,7 @@ class _MusicGrid extends StatelessWidget {
             children: [
               Text(
                 error!,
-                style: const TextStyle(color: Color(0xFF9AA5C4), fontSize: 12),
+                style: GoogleFonts.robotoFlex(color: Color(0xFF9AA5C4), fontSize: 12),
                 textAlign: TextAlign.center,
               ),
               if (onRetry != null) ...[
@@ -1379,7 +1399,7 @@ class _MusicGrid extends StatelessWidget {
           crossAxisCount: 2,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
-          childAspectRatio: 0.85,
+          childAspectRatio: 0.7,
         ),
         itemCount: tracks.length,
         itemBuilder: (context, index) {
@@ -1431,10 +1451,36 @@ class _VideoGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isLoading && tracks.isEmpty) {
-      return const SizedBox(
-        height: 120,
-        child: Center(child: CircularProgressIndicator(color: Colors.white)),
-      );
+      return layout == VideoLayout.grid
+          ? GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 0.7,
+              ),
+              itemCount: 4,
+              itemBuilder: (context, index) {
+                return _VideoSkeletonCard();
+              },
+            )
+          : SizedBox(
+              height: 195,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: 4,
+                padding: EdgeInsets.zero,
+                separatorBuilder: (_, __) => const SizedBox(width: 16),
+                itemBuilder: (context, index) {
+                  return SizedBox(
+                    width: 150,
+                    child: _VideoSkeletonCard(),
+                  );
+                },
+              ),
+            );
     }
 
     if (error != null && tracks.isEmpty) {
@@ -1446,7 +1492,7 @@ class _VideoGrid extends StatelessWidget {
             children: [
               Text(
                 error!,
-                style: const TextStyle(color: Color(0xFF9AA5C4), fontSize: 12),
+                style: GoogleFonts.robotoFlex(color: Color(0xFF9AA5C4), fontSize: 12),
                 textAlign: TextAlign.center,
               ),
               if (onRetry != null) ...[
@@ -1475,7 +1521,7 @@ class _VideoGrid extends StatelessWidget {
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: 0.85,
+              childAspectRatio: 0.7,
               children: List.generate(
                 4,
                 (index) => Container(
@@ -1523,7 +1569,7 @@ class _VideoGrid extends StatelessWidget {
           crossAxisCount: 2,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
-          childAspectRatio: 0.85,
+          childAspectRatio: 0.7,
         ),
         itemCount: tracks.length,
         itemBuilder: (context, index) {
@@ -1570,10 +1616,6 @@ class _VideoTrackCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.5),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.1),
-            width: 1,
-          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.2),
@@ -1602,7 +1644,7 @@ class _VideoTrackCard extends StatelessWidget {
                         track.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: GoogleFonts.robotoFlex(
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
                           fontSize: 14,
@@ -1615,7 +1657,7 @@ class _VideoTrackCard extends StatelessWidget {
                           track.channel!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: GoogleFonts.robotoFlex(
                             fontSize: 12,
                             color: Color(0xFFB4BEDA),
                           ),
@@ -1628,7 +1670,7 @@ class _VideoTrackCard extends StatelessWidget {
                             track.note!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: GoogleFonts.robotoFlex(
                               fontSize: 10,
                               color: Color(0xFF9AA5C4),
                             ),
@@ -1695,9 +1737,20 @@ class _ArticleCarousel extends StatelessWidget {
     const carouselHeight = 180.0;
 
     if (isLoading && articles.isEmpty) {
-      return const SizedBox(
+      return SizedBox(
         height: carouselHeight,
-        child: Center(child: CircularProgressIndicator(color: Colors.white)),
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: 4,
+          padding: EdgeInsets.zero,
+          separatorBuilder: (_, __) => const SizedBox(width: 16),
+          itemBuilder: (context, index) {
+            return SizedBox(
+              width: 220,
+              child: _ArticleSkeletonCard(),
+            );
+          },
+        ),
       );
     }
 
@@ -1710,7 +1763,7 @@ class _ArticleCarousel extends StatelessWidget {
             children: [
               Text(
                 error!,
-                style: const TextStyle(color: Color(0xFF9AA5C4), fontSize: 12),
+                style: GoogleFonts.robotoFlex(color: Color(0xFF9AA5C4), fontSize: 12),
                 textAlign: TextAlign.center,
               ),
               if (onRetry != null) ...[
@@ -1780,10 +1833,25 @@ class _ArticleGridExpanded extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isLoading && articles.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 48),
-          child: CircularProgressIndicator(color: Colors.white),
+      final rowCount = 2; // 2 rows for 4 items
+      final itemHeight = 200.0;
+      final spacing = 12.0;
+      final totalHeight = (rowCount * itemHeight) + ((rowCount - 1) * spacing);
+
+      return SizedBox(
+        height: totalHeight,
+        child: GridView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 0.95,
+          ),
+          itemCount: 4,
+          itemBuilder: (context, index) {
+            return _ArticleSkeletonCard();
+          },
         ),
       );
     }
@@ -1793,7 +1861,7 @@ class _ArticleGridExpanded extends StatelessWidget {
         children: [
           Text(
             error!,
-            style: const TextStyle(color: Color(0xFF9AA5C4), fontSize: 12),
+            style: GoogleFonts.robotoFlex(color: Color(0xFF9AA5C4), fontSize: 12),
             textAlign: TextAlign.center,
           ),
           if (onRetry != null) ...[
@@ -1864,82 +1932,87 @@ class _ArticleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Ink(
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.1),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+          width: 1,
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _formatArticlePreview(article.title),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _formatArticlePreview(article.summary),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFFB4BEDA),
-                  fontSize: 12,
-                  height: 1.3,
-                ),
-              ),
-              const Spacer(),
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children:
-                    (article.tags.isNotEmpty
-                            ? article.tags.take(2)
-                            : const ['Mindfulness'])
-                        .map(
-                          (tag) => Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(
-                                0xFFB7B9FF,
-                              ).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              tag,
-                              style: const TextStyle(
-                                color: Color(0xFFB7B9FF),
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _formatArticlePreview(article.title),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.robotoFlex(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _formatArticlePreview(article.summary),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.robotoFlex(
+                    color: Color(0xFFB4BEDA),
+                    fontSize: 12,
+                    height: 1.3,
+                  ),
+                ),
+                const Spacer(),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children:
+                      (article.tags.isNotEmpty
+                              ? article.tags.take(2)
+                              : const ['Mindfulness'])
+                          .map(
+                            (tag) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(
+                                  0xFFB7B9FF,
+                                ).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                tag,
+                                style: GoogleFonts.robotoFlex(
+                                  color: Color(0xFFB7B9FF),
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1977,10 +2050,6 @@ class _MusicTrackCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.5),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.1),
-            width: 1,
-          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.2),
@@ -2009,7 +2078,7 @@ class _MusicTrackCard extends StatelessWidget {
                         track.title,
                         maxLines: 1, // Avoid text overflow
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: GoogleFonts.robotoFlex(
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
                           fontSize: 14,
@@ -2021,7 +2090,7 @@ class _MusicTrackCard extends StatelessWidget {
                         track.artist,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: GoogleFonts.robotoFlex(
                           fontSize: 12,
                           color: Color(0xFFB4BEDA),
                         ),
@@ -2034,7 +2103,7 @@ class _MusicTrackCard extends StatelessWidget {
                             track.note!,
                             maxLines: 1, // Reduced to 1 to save space
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: GoogleFonts.robotoFlex(
                               fontSize: 10,
                               color: Color(0xFF9AA5C4),
                             ),
@@ -2101,7 +2170,7 @@ class _Placeholder extends StatelessWidget {
       child: Center(
         child: Text(
           display,
-          style: const TextStyle(
+          style: GoogleFonts.robotoFlex(
             color: Colors.white,
             fontSize: 32,
             fontWeight: FontWeight.bold,
@@ -2225,7 +2294,7 @@ class _BestForYouCard extends StatelessWidget {
                               : isVideo
                                   ? 'Video'
                                   : 'Article',
-                          style: const TextStyle(
+                          style: GoogleFonts.robotoFlex(
                             color: Color(0xFFB7B9FF),
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -2238,7 +2307,7 @@ class _BestForYouCard extends StatelessWidget {
                       title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: GoogleFonts.robotoFlex(
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
                         fontSize: 16,
@@ -2250,7 +2319,7 @@ class _BestForYouCard extends StatelessWidget {
                       subtitle,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: GoogleFonts.robotoFlex(
                         fontSize: 12,
                         color: Color(0xFFB4BEDA),
                         height: 1.3,
@@ -2284,6 +2353,372 @@ class _PlayGlyph extends StatelessWidget {
         shape: BoxShape.circle,
       ),
       child: Icon(Icons.play_arrow_rounded, color: color, size: 20),
+    );
+  }
+}
+
+/// Music skeleton card for loading state
+class _MusicSkeletonCard extends StatelessWidget {
+  const _MusicSkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return _ShimmerSkeleton(
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF2E3D6B),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 1. The Image Placeholder
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: Container(
+                    color: const Color(0xFF2E3D6B),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // 2. The Text Placeholders (Wrapped in Expanded to prevent overflow)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2E3D6B),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      height: 14,
+                      width: 100,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2E3D6B),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    // Removed the 3rd line to save vertical space
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _VideoSkeletonCard extends StatelessWidget {
+  const _VideoSkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return _ShimmerSkeleton(
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF2E3D6B),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: Container(
+                    color: const Color(0xFF2E3D6B),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2E3D6B),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      height: 14,
+                      width: 100,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2E3D6B),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Article skeleton card for loading state
+class _ArticleSkeletonCard extends StatelessWidget {
+  const _ArticleSkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return _ShimmerSkeleton(
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF2E3D6B),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.1),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 18,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2E3D6B),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                height: 12,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2E3D6B),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                height: 12,
+                width: 150,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2E3D6B),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                height: 12,
+                width: 120,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2E3D6B),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const Spacer(),
+              Row(
+                children: [
+                  Container(
+                    height: 20,
+                    width: 60,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2E3D6B),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    height: 20,
+                    width: 50,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2E3D6B),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shimmer skeleton loading widget with dark mode theme
+class _ShimmerSkeleton extends StatefulWidget {
+  final double? width;
+  final double? height;
+  final BorderRadius? borderRadius;
+  final Widget? child;
+
+  const _ShimmerSkeleton({
+    this.width,
+    this.height,
+    this.borderRadius,
+    this.child,
+  });
+
+  @override
+  State<_ShimmerSkeleton> createState() => _ShimmerSkeletonState();
+}
+
+class _ShimmerSkeletonState extends State<_ShimmerSkeleton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Calculate dimensions safely
+        final width = widget.width ??
+            (constraints.maxWidth.isFinite ? constraints.maxWidth : 200.0);
+        final height = widget.height ??
+            (constraints.maxHeight.isFinite ? constraints.maxHeight : 100.0);
+
+        // Define the width of the shimmer beam (e.g., 50% of the content width)
+        final shimmerWidth = width * 0.5;
+
+        return AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            // Calculate exact position to move from left (outside) to right (outside)
+            // Range: -shimmerWidth to width
+            final offset = (width + shimmerWidth) * _controller.value - shimmerWidth;
+
+            // Common shimmer gradient
+            final gradientDecoration = BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Colors.transparent,
+                  Colors.white.withOpacity(0.1),
+                  Colors.white.withOpacity(0.25),
+                  Colors.white.withOpacity(0.1),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
+              ),
+            );
+
+            // Structure 1: Wrapping a child widget (Skeleton Cards)
+            if (widget.child != null) {
+              return ClipRRect(
+                borderRadius: widget.borderRadius ?? BorderRadius.circular(8),
+                child: Stack(
+                  clipBehavior: Clip.hardEdge, // Crucial: prevents overflow
+                  children: [
+                    // The background content (grey boxes)
+                    widget.child!,
+
+                    // The moving Shimmer Overlay
+                    Positioned(
+                      top: 0,
+                      bottom: 0,
+                      left: 0,
+                      width: shimmerWidth, // Explicit width
+                      child: Transform.translate(
+                        offset: Offset(offset, 0),
+                        child: Container(
+                          decoration: gradientDecoration,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            // Structure 2: Standalone loading block (if used without child)
+            return ClipRRect(
+              borderRadius: widget.borderRadius ?? BorderRadius.circular(8),
+              child: Stack(
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  // Base background
+                  Container(
+                    width: width,
+                    height: height,
+                    color: const Color(0xFF2E3D6B),
+                  ),
+                  // Moving shimmer
+                  Positioned(
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    width: shimmerWidth,
+                    child: Transform.translate(
+                      offset: Offset(offset, 0),
+                      child: Container(
+                        decoration: gradientDecoration,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'constants/color_constant.dart';
-import 'widgets/custom_bottom_navigation_bar.dart';
+import 'screens/splash_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import './data/local/local_database.dart';
@@ -71,7 +71,7 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const CustomBottomNavigationBar(),
+      home: const SplashScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
