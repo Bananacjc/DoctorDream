@@ -35,7 +35,7 @@ ${userInfoText.isNotEmpty ? 'User Information:\n$userInfoText\n' : ''}
   You can reference this information naturally in your responses when relevant, but don't force it into every message. Use it to provide more personalized and contextually aware support.
   '''
         : '';
-    
+
     return '''
   $basePrompt
   You are now in a general conversation mode. Respond naturally and empathetically to the user's messages, keeping their emotional state and context in mind.
@@ -178,7 +178,8 @@ ${userInfoText.isNotEmpty ? 'User Information:\n$userInfoText\n' : ''}
       {
         "summary" : "A 1 sentence, warm, and inviting summary of the main 
         insight. Max 25 words",
-        "content" : "The detailed analysis in Markdown format." 
+        "content" : "The detailed analysis in Markdown format." ,
+        "is_critical" : boolean
       }
       
       For the "content" field:
@@ -193,6 +194,9 @@ ${userInfoText.isNotEmpty ? 'User Information:\n$userInfoText\n' : ''}
       6. CRITICAL: Do NOT start with greetings like "Hello", "Hi", or "Based 
       on your dreams". Start immediately with the insight.
       7. Do not provide medical prescriptions.
+      
+      For the "is_critical" field:
+      Set to true ONLY if the analysis suggests severe distress, self-harm, hopelessness, or immediate danger. Otherwise false.
       ''';
   }
 
@@ -232,7 +236,8 @@ ${userInfoText.isNotEmpty ? 'User Information:\n$userInfoText\n' : ''}
     The JSON object must have this exact structure:
     {
       "summary": "A 1 sentence summary focusing on their progress (e.g. 'Your patterns show a calming trend...'). Max 25 words.",
-      "content": "The detailed comparison in Markdown format."
+      "content": "The detailed comparison in Markdown format.",
+      "is_critical" : boolean
     }
 
     For the "content" field:
@@ -242,6 +247,9 @@ ${userInfoText.isNotEmpty ? 'User Information:\n$userInfoText\n' : ''}
       4. Offer advice with 1-2 HYPERLINKS.
       5. CRITICAL: Do NOT use greetings. Be direct.
       6. No medical prescriptions.
+      
+      For the "is_critical" field:
+    Set to true ONLY if the analysis suggests severe distress or worsening condition requiring immediate attention. Otherwise false.
       ''';
   }
 }

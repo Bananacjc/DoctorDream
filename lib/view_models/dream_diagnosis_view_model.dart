@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'dart:convert';
 
 import 'package:doctor_dream/data/services/gemini_service.dart';
 import 'package:flutter/material.dart';
@@ -38,13 +39,13 @@ class DreamDiagnosisViewModel extends ChangeNotifier {
     }
   }
 
-  Future<String?> diagnose() async {
+  Future<Map<String, dynamic>?> diagnose() async {
     _isDiagnosing = true;
     notifyListeners();
 
     try {
       if (!hasEnoughDreams) {
-        return "";
+        return null;
       }
 
       final String? previousDiagnosisContent = _allDiagnosis.isNotEmpty
@@ -52,13 +53,27 @@ class DreamDiagnosisViewModel extends ChangeNotifier {
           : null;
 
       final dreams = _allEntries.take(_minDreamCount).toList();
-      final diagnosis = await GeminiService.instance.diagnoseDream(
+      final jsonResponse = await GeminiService.instance.diagnoseDream(
         dreams,
         previousDiagnosis: previousDiagnosisContent,
       );
-      return diagnosis;
+
+      String cleanJson = jsonResponse.replaceAll('```json', '').replaceAll
+        ('```', '').trim();
+
+      final Map<String, dynamic> parsedData = jsonDecode(cleanJson);
+
+      return {
+        'content' : parsedData['content'] ?? "Analysis unavailable",
+        'is_critical' : parsedData['is_critical'] ?? false
+      };
+
+
+
+
+
     } catch (e) {
-      return "Error diagnosing dreams";
+      return null;
     } finally {
       _isDiagnosing = false;
       notifyListeners();

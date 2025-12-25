@@ -49,14 +49,7 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
           buttonText: "Discover My Patterns",
           type: ButtonType.confirm,
           onPressed: () async {
-            final result = await _viewModel.diagnose();
-
-            if (result != null) {
-              await _viewModel.saveDreamDiagnosis(result);
-              await _viewModel.loadDiagnosis();
-            }
-
-            _viewModel.loadDiagnosis();
+            await _handleDiagnosisTrigger();
           },
         ),
       ],
@@ -88,12 +81,57 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
     );
   }
 
+  Future<void> _showSevereConditionPrompt() async {
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return CustomPromptDialog(
+          title: "Check In",
+          icon: Icons.warning_amber_rounded,
+          description:
+              "Based on your recent dreams, it seems you might be "
+              "going through a particularly tough time. Would you like some "
+              "help?",
+          actions: [
+            CustomTextButton(
+              buttonText: "I'm okay",
+              type: ButtonType.cancel,
+              onPressed: () async {
+                Navigator.of(context).pop();
+              },
+            ),
+            CustomTextButton(
+              buttonText: "Yes, please",
+              type: ButtonType.warning,
+              onPressed: () async {
+                Navigator.of(context).pop();
+                _showHelpDialog(context);
+              },
+            )
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _diagnoseDreams() async {
+    _handleDiagnosisTrigger();
+  }
+
+  Future<void> _handleDiagnosisTrigger() async {
     final result = await _viewModel.diagnose();
-    if (result != null) {
-      await _viewModel.saveDreamDiagnosis(result);
+
+    if (result != null && result['content'] != null) {
+      await _viewModel.saveDreamDiagnosis(result['content']);
+
       await _viewModel.loadDiagnosis();
+
+      if (result['is_critical'] == true) {
+        await _showSevereConditionPrompt();
+      }
     }
+
     _viewModel.loadDiagnosis();
   }
 
@@ -205,18 +243,21 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
                                 context: context,
                                 barrierDismissible: true,
                                 barrierColor: Colors.transparent,
-                                builder: (context) => SafetyPlanSelectionOverlay(
-                                  viewModel: viewModel,
-                                  onPlanSelected: (plan) {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            SafetyPlanExecutionScreen(plan: plan),
-                                      ),
-                                    );
-                                  },
-                                ),
+                                builder: (context) =>
+                                    SafetyPlanSelectionOverlay(
+                                      viewModel: viewModel,
+                                      onPlanSelected: (plan) {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                SafetyPlanExecutionScreen(
+                                                  plan: plan,
+                                                ),
+                                          ),
+                                        );
+                                      },
+                                    ),
                               );
                               // Dispose viewModel after dialog closes
                               viewModel.dispose();
@@ -251,7 +292,7 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
                             onTap: () async {
                               final viewModel = ContactViewModel();
                               await viewModel.loadContacts();
-                              
+
                               if (!context.mounted) {
                                 viewModel.dispose();
                                 return;
@@ -305,17 +346,30 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
                               Navigator.push(
                                 context,
                                 PageRouteBuilder(
-                                  pageBuilder: (context, animation, secondaryAnimation) =>
-                                  TransitionOverlay(
-                                    nextScreen: const HotlineScreen(),
-                                    message: "Connecting you to professional help.\nYou are taking a brave step.",
-                                    icon: Icons.medical_services_outlined,
-                                    waitForLoad: true,
-                                  ),
+                                  pageBuilder:
+                                      (
+                                        context,
+                                        animation,
+                                        secondaryAnimation,
+                                      ) => TransitionOverlay(
+                                        nextScreen: const HotlineScreen(),
+                                        message:
+                                            "Connecting you to professional help.\nYou are taking a brave step.",
+                                        icon: Icons.medical_services_outlined,
+                                        waitForLoad: true,
+                                      ),
                                   transitionsBuilder:
-                                  (context, animation, secondaryAnimation, child) {
-                                    return FadeTransition(opacity: animation, child: child);
-                                  },
+                                      (
+                                        context,
+                                        animation,
+                                        secondaryAnimation,
+                                        child,
+                                      ) {
+                                        return FadeTransition(
+                                          opacity: animation,
+                                          child: child,
+                                        );
+                                      },
                                 ),
                               );
                             },
@@ -520,15 +574,15 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
           ),
           body: Container(
             decoration: BoxDecoration(
-                gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      ColorConstant.surfaceContainer,
-                      ColorConstant.surfaceContainerHigh,
-                      ColorConstant.surfaceContainerHighest
-                    ]
-                )
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  ColorConstant.surfaceContainer,
+                  ColorConstant.surfaceContainerHigh,
+                  ColorConstant.surfaceContainerHighest,
+                ],
+              ),
             ),
             child: Stack(
               children: [
