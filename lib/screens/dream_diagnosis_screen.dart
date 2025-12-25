@@ -616,16 +616,13 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
                             ),
                           ),
                           Spacer(),
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Text(
-                              "Analysis updates based on your recent 10 dreams.",
-                              style: GoogleFonts.robotoFlex(
-                                color: ColorConstant.onSurfaceVariant.withAlpha(
-                                  100,
-                                ),
-                                fontSize: 12,
+                          Text(
+                            "Analysis updates based on your recent 10 dreams.",
+                            style: GoogleFonts.robotoFlex(
+                              color: ColorConstant.onSurfaceVariant.withAlpha(
+                                100,
                               ),
+                              fontSize: 12,
                             ),
                           ),
                         ],

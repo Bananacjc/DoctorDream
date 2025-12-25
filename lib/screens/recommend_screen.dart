@@ -869,7 +869,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
                 slivers: [
                   SliverToBoxAdapter(
                     child: Padding(
-                  padding: pagePadding.copyWith(top: 12.0, bottom: 8.0),
+                  padding: pagePadding.copyWith(top: 0, bottom: 8.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: const [

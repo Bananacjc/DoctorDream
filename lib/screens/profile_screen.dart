@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 // Keep your existing imports
 import 'calm_kit_screen.dart';
@@ -542,9 +543,9 @@ class _MoodTrendCard extends StatelessWidget {
                 color: _trendColor,
               ),
             ),
-            const Text(
+            Text(
               'Mood Trend',
-              style: TextStyle(
+              style: GoogleFonts.robotoFlex(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
                 color: Colors.black87,
@@ -892,7 +893,7 @@ class _ActionItem extends StatelessWidget {
         leading: Icon(icon, color: Colors.black87, size: 24),
         title: Text(
           title,
-          style: const TextStyle(
+          style: GoogleFonts.robotoFlex(
             fontSize: 16,
             fontWeight: FontWeight.w500,
             color: Colors.black87,

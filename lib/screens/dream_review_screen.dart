@@ -168,7 +168,7 @@ class _DreamReviewScreenState extends State<DreamReviewScreen> {
             colorScheme: ColorScheme.light(
               primary: ColorConstant.primaryContainer,
               onPrimary: ColorConstant.onPrimaryContainer,
-              onSurface: ColorConstant.onPrimary,
+              onSurface: ColorConstant.primary,
               secondary: ColorConstant.primaryContainer.withAlpha(100),
             ),
           ),
@@ -262,9 +262,9 @@ class _DreamReviewScreenState extends State<DreamReviewScreen> {
                 colors: [
                   ColorConstant.surfaceContainer,
                   ColorConstant.surfaceContainerHigh,
-                  ColorConstant.surfaceContainerHighest
-                ]
-              )
+                  ColorConstant.surfaceContainerHighest,
+                ],
+              ),
             ),
             child: Padding(
               padding: EdgeInsets.all(16),
@@ -348,7 +348,7 @@ class _DreamReviewScreenState extends State<DreamReviewScreen> {
                           SizedBox(height: 8),
                           Text(
                             "Try a different filter or tap 'See Everything' to "
-                                "reset.",
+                            "reset.",
                             style: GoogleFonts.robotoFlex(
                               color: ColorConstant.onPrimary.withAlpha(180),
                               fontSize: 14,
