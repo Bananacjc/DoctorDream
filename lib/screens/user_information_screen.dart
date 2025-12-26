@@ -13,6 +13,7 @@ class UserInformationScreen extends StatefulWidget {
 }
 
 class _UserInformationScreenState extends State<UserInformationScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _pronounsController = TextEditingController();
   final _birthdayController = TextEditingController();
@@ -21,7 +22,7 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
   final _locationController = TextEditingController();
   final _notesController = TextEditingController();
 
-  bool _isEditing = false;
+  bool _hasChanges = false;
   bool _hasAppliedInitialProfile = false;
   late final UserProfileViewModel _viewModel;
 
@@ -30,10 +31,26 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
     super.initState();
     _viewModel = UserProfileViewModel();
     _viewModel.loadProfile();
+
+    _nameController.addListener(_onFieldChanged);
+    _pronounsController.addListener(_onFieldChanged);
+    _birthdayController.addListener(_onFieldChanged);
+    _emailController.addListener(_onFieldChanged);
+    _phoneController.addListener(_onFieldChanged);
+    _locationController.addListener(_onFieldChanged);
+    _notesController.addListener(_onFieldChanged);
   }
 
   @override
   void dispose() {
+    _nameController.removeListener(_onFieldChanged);
+    _pronounsController.removeListener(_onFieldChanged);
+    _birthdayController.removeListener(_onFieldChanged);
+    _emailController.removeListener(_onFieldChanged);
+    _phoneController.removeListener(_onFieldChanged);
+    _locationController.removeListener(_onFieldChanged);
+    _notesController.removeListener(_onFieldChanged);
+
     _nameController.dispose();
     _pronounsController.dispose();
     _birthdayController.dispose();
@@ -43,6 +60,14 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
     _notesController.dispose();
     _viewModel.dispose();
     super.dispose();
+  }
+
+  void _onFieldChanged() {
+    if (!_hasChanges) {
+      setState(() {
+        _hasChanges = true;
+      });
+    }
   }
 
   void _applyProfileToControllers(UserProfile profile) {
@@ -55,19 +80,24 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
     _notesController.text = profile.notes;
   }
 
-  Future<void> _toggleEditState() async {
-    if (_viewModel.isLoading) return;
-    if (_isEditing) {
-      FocusScope.of(context).unfocus();
-      await _saveProfile();
+  String? _validateEmail(String? value) {
+    if (value == null || value.isEmpty) {
+      return null; // Allow empty email
     }
-
-    setState(() {
-      _isEditing = !_isEditing;
-    });
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
+    if (!emailRegex.hasMatch(value.trim())) {
+      return 'Please enter a valid email address';
+    }
+    return null;
   }
 
   Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) {
+      return; // Don't save if validation fails
+    }
+
     final updatedProfile = _viewModel.profile.copyWith(
       fullName: _nameController.text.trim(),
       pronouns: _pronounsController.text.trim(),
@@ -81,6 +111,11 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
 
     final success = await _viewModel.saveProfile(updatedProfile);
     if (!mounted) return;
+    if (success) {
+      setState(() {
+        _hasChanges = false;
+      });
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -133,118 +168,43 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
             actions: [
               Padding(
                 padding: const EdgeInsets.only(right: 16),
-                child: IconButton(
-                  onPressed: _viewModel.isSaving ? null : _toggleEditState,
-                  style: IconButton.styleFrom(
-                    backgroundColor: _isEditing
-                        ? ColorConstant.primaryContainer
-                        : Colors.transparent,
-                    foregroundColor: _isEditing
-                        ? ColorConstant.onPrimaryContainer
-                        : ColorConstant.onSurfaceVariant,
-                  ),
-                  icon: _viewModel.isSaving
-                      ? SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: ColorConstant.primary,
-                          ),
-                        )
-                      : Icon(
-                          _isEditing ? Icons.check_rounded : Icons.edit_rounded,
+                child: _viewModel.isSaving
+                    ? SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: ColorConstant.primary,
                         ),
-                  tooltip: _isEditing ? 'Save Profile' : 'Edit Profile',
-                ),
+                      )
+                    : (_hasChanges
+                        ? IconButton(
+                            onPressed: () {
+                              if (!_viewModel.isSaving) {
+                                FocusScope.of(context).unfocus();
+                                _saveProfile();
+                              }
+                            },
+                            style: IconButton.styleFrom(
+                              backgroundColor: ColorConstant.primaryContainer,
+                              foregroundColor:
+                                  ColorConstant.onPrimaryContainer,
+                            ),
+                            icon: const Icon(Icons.check_rounded),
+                            tooltip: 'Save Profile',
+                          )
+                        : const SizedBox.shrink()),
                 ),
             ],
           ),
           body: SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.all(24),
-                      child: Column(
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                // Header / Avatar
-                          Center(
-                            child: Stack(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                            color:
-                                ColorConstant.primaryContainer.withOpacity(0.5),
-                            width: 2,
-                                    ),
-                                  ),
-                                  child: CircleAvatar(
-                                    radius: 50,
-                          backgroundColor: ColorConstant.secondaryContainer,
-                          child: Icon(
-                                      Icons.person_rounded, 
-                                      size: 50, 
-                            color: ColorConstant.onSecondaryContainer,
-                                    ),
-                                  ),
-                                ),
-                                if (_isEditing)
-                                  Positioned(
-                                    bottom: 0,
-                          right: 0,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: ColorConstant.primary,
-                                        shape: BoxShape.circle,
-                              border: Border.all(
-                                  color: ColorConstant.surface, width: 2),
-                                      ),
-                            child: Icon(
-                                        Icons.camera_alt_rounded,
-                                        size: 16,
-                              color: ColorConstant.onPrimary,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          if (!_isEditing) ...[
-                  Center(
-                    child: Column(
-                      children: [
-                            Text(
-                              _nameController.text.isNotEmpty 
-                                  ? _nameController.text 
-                                  : 'Your Name',
-                          style: GoogleFonts.robotoFlex(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                            color: ColorConstant.onSurface,
-                              ),
-                            ),
-                            if (_pronounsController.text.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  _pronounsController.text,
-                              style: GoogleFonts.robotoFlex(
-                                    fontSize: 14,
-                                color: ColorConstant.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                ] else
-                            const SizedBox(height: 32),
-
                 // Sections
                 _buildSectionHeader("Identity"),
                 const SizedBox(height: 16),
@@ -280,6 +240,7 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
                             icon: Icons.email_outlined,
                     isLast: false,
                             keyboardType: TextInputType.emailAddress,
+                            validator: _validateEmail,
                           ),
                   _buildTextField(
                     controller: _phoneController,
@@ -310,6 +271,7 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
                 ]),
                 const SizedBox(height: 40),
                         ],
+                        ),
                       ),
                     ),
         );
@@ -354,57 +316,126 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
     bool isLast = false,
     int maxLines = 1,
     TextInputType? keyboardType,
+    String? Function(String?)? validator,
   }) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 12, right: 16),
-                child: Icon(
-                  icon,
-                  size: 24,
-                  color: _isEditing
-                      ? ColorConstant.primary
-                      : ColorConstant.onSurfaceVariant,
-          ),
-        ),
-              Expanded(
-        child: TextField(
-          controller: controller,
-                  readOnly: !_isEditing,
-                  enabled: _isEditing,
-          maxLines: maxLines,
-          keyboardType: keyboardType,
-                  style: GoogleFonts.robotoFlex(
-                    fontSize: 16,
-                    color: ColorConstant.onSurface,
+    return Builder(
+      builder: (context) {
+        String? errorText;
+        if (validator != null) {
+          errorText = validator(controller.text);
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: errorText != null
+                        ? Colors.red.withOpacity(0.7)
+                        : Colors.white.withOpacity(0.5),
+                    width: errorText != null ? 1.5 : 1,
                   ),
-          decoration: InputDecoration(
-            labelText: label,
-                    labelStyle: GoogleFonts.robotoFlex(
-                      color: ColorConstant.onSurfaceVariant,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Icon(
+                        icon,
+                        size: 22,
+                        color: errorText != null
+                            ? Colors.red
+                            : ColorConstant.onSurfaceVariant,
+                      ),
                     ),
-            border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
-            isDense: true,
-          ),
-        ),
-      ),
-            ],
-          ),
-        ),
-        if (!isLast)
-          Divider(
-            height: 1,
-            indent: 56,
-            endIndent: 16,
-            color: ColorConstant.outlineVariant.withOpacity(0.2),
-          ),
-      ],
+                    Expanded(
+                      child: validator != null
+                          ? TextFormField(
+                              controller: controller,
+                              maxLines: maxLines,
+                              keyboardType: keyboardType,
+                              validator: validator,
+                              onChanged: (value) {
+                                // Trigger rebuild to update border color
+                                setState(() {});
+                              },
+                              style: GoogleFonts.robotoFlex(
+                                fontSize: 16,
+                                color: ColorConstant.onSurface,
+                              ),
+                              decoration: InputDecoration(
+                                labelText: label,
+                                labelStyle: GoogleFonts.robotoFlex(
+                                  color: errorText != null
+                                      ? Colors.red
+                                      : ColorConstant.onSurfaceVariant,
+                                ),
+                                border: InputBorder.none,
+                                errorBorder: InputBorder.none,
+                                focusedErrorBorder: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                disabledBorder: InputBorder.none,
+                                errorText: null,
+                                errorStyle: const TextStyle(height: 0),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
+                                isDense: true,
+                              ),
+                            )
+                          : TextField(
+                              controller: controller,
+                              maxLines: maxLines,
+                              keyboardType: keyboardType,
+                              style: GoogleFonts.robotoFlex(
+                                fontSize: 16,
+                                color: ColorConstant.onSurface,
+                              ),
+                              decoration: InputDecoration(
+                                labelText: label,
+                                labelStyle: GoogleFonts.robotoFlex(
+                                  color: ColorConstant.onSurfaceVariant,
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
+                                isDense: true,
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (errorText != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 56, top: 4, bottom: 8),
+                child: Text(
+                  errorText,
+                  style: GoogleFonts.robotoFlex(
+                    fontSize: 12,
+                    color: Colors.red,
+                  ),
+                ),
+              ),
+            if (!isLast)
+              Divider(
+                height: 1,
+                indent: 56,
+                endIndent: 16,
+                color: ColorConstant.outlineVariant.withOpacity(0.2),
+              ),
+          ],
+        );
+      },
     );
   }
 }
