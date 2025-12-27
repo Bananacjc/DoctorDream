@@ -122,10 +122,14 @@ class ChatViewModel extends ChangeNotifier {
     try {
       await _database.saveChatMessage(message);
       
-      // Add to local messages if it's for the current session
+      // Add to local messages if it's for the current session and not already in the list
       if (message.sessionId == _currentSessionId) {
-        _messages.add(message);
-        notifyListeners();
+        // Check if message already exists (by ID) to avoid duplicates
+        final exists = _messages.any((m) => m.id == message.id);
+        if (!exists) {
+          _messages.add(message);
+          notifyListeners();
+        }
       }
       
       // Reload sessions to update the updatedAt timestamp
@@ -139,8 +143,12 @@ class ChatViewModel extends ChangeNotifier {
   /// Add a message to the local messages list (for immediate UI update)
   void addMessage(ChatMessage message) {
     if (message.sessionId == _currentSessionId) {
-      _messages.add(message);
-      notifyListeners();
+      // Check if message already exists (by ID) to avoid duplicates
+      final exists = _messages.any((m) => m.id == message.id);
+      if (!exists) {
+        _messages.add(message);
+        notifyListeners();
+      }
     }
   }
 

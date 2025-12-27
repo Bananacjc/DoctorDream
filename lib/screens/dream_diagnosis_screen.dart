@@ -710,9 +710,26 @@ class _DreamDiagnosisScreenState extends State<DreamDiagnosisScreen> {
                       heroTag: "help_button",
                       onPressed: () => _showHelpDialog(context),
                       backgroundColor: ColorConstant.secondary,
-                      child: Icon(
-                        Icons.help_outline_rounded,
-                        color: ColorConstant.onSecondary,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: ColorConstant.onSecondary,
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.priority_high,
+                            color: ColorConstant.onSecondary,
+                            size: 16,
+                          ),
+                        ],
                       ),
                     ),
                   ),
