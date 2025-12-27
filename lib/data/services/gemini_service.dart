@@ -135,8 +135,6 @@ class GeminiService {
         contentBuffer.writeln('Content: ${dreams[i].dreamContent}');
       }
 
-      log("DIAGNOSIS PROMPT CONTENT: ${contentBuffer.toString()}");
-
       final response = await model.generateContent([
         Content.text(contentBuffer.toString()),
       ]);
@@ -150,7 +148,6 @@ class GeminiService {
       }
 
     } catch (e) {
-      print("GEMINI API ERROR (diagnoseDream): $e");
       if (_isQuotaOrRateLimitError(e)) {
         return _friendlyLimitMessage('running the dream diagnosis');
       }
